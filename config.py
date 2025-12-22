@@ -1,19 +1,55 @@
 # Grid Trading Configuration
 
-# Trading Parameters
-SYMBOL = 'BTC/USDT'
-GRID_LEVELS = 10  # Number of grid lines
-LOWER_PRICE_LIMIT = 90000  # Example lower bound
-UPPER_PRICE_LIMIT = 110000 # Example upper bound
-AMOUNT_PER_GRID = 0.001    # Amount of base asset per order
-
-# Risk Management Parameters (inspired by Thorp/Kelly)
-RISK_PARAMS = {
-    'max_drawdown_limit': 0.15,  # Stop bot if drawdown exceeds 15%
-    'stop_loss_pct': 0.05,       # Stop loss per trade or per grid position
-    'max_position_size': 1.0,    # Max total exposure in BTC
-    'kelly_fraction': 0.5        # Use Half-Kelly for sizing (conservative)
+# Global Strategy Parameters (The Engine)
+STRATEGY_PARAMS = {
+    'grid_levels': 20,
+    'base_grid_step_pct': 0.01,  # 1% standard step
+    'trend_ma_period': 200,      # Trend Filter (Simons)
+    'min_atr_period': 14         # Volatility Window
 }
 
-# API Configuration (Load from environment variables in real usage)
-EXCHANGE_ID = 'binance'
+# Global Risk Parameters (The Fortress)
+RISK_PARAMS = {
+    'max_drawdown_limit': 0.15,      # 15% Hard Stop (Circuit Breaker)
+    'stop_loss_atr_multiplier': 3.0, # Turtle 3x ATR Stops
+    'kelly_fraction': 0.5            # Thorp's Half-Kelly
+}
+
+# API Configuration
+EXCHANGE_ID = 'kraken' # For Crypto
+
+# --- Multi-Asset Portfolio Configuration ---
+# Binance Spot Crypto Only
+PORTFOLIO_CONFIG = [
+    {
+        'symbol': 'BTC/USDT',
+        'type': 'crypto',
+        'source': 'exchange', 
+        'exchange_id': 'binance'
+    },
+    {
+        'symbol': 'ETH/USDT',
+        'type': 'crypto',
+        'source': 'exchange',
+        'exchange_id': 'binance'
+    },
+    {
+        'symbol': 'BNB/USDT',
+        'type': 'crypto',
+        'source': 'exchange',
+        'exchange_id': 'binance'
+    }
+    # Inactive / Examples
+    # {
+    #     'symbol': 'AAPL',
+    #     'type': 'stock',
+    #     'source': 'csv',      
+    #     'csv_path': 'data/AAPL.csv'
+    # },
+    # {
+    #     'symbol': 'EUR/USD',
+    #     'type': 'forex',
+    #     'source': 'csv',
+    #     'csv_path': 'data/EURUSD.csv'
+    # }
+]

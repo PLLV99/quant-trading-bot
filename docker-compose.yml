@@ -1,0 +1,12 @@
+services:
+  trading-bot:
+    build: .
+    image: quant-trading-bot:latest
+    container_name: quant-bot-v1
+    restart: unless-stopped
+    volumes:
+      - ./logs:/app/logs
+      - ./data:/app/data
+    environment:
+      - PYTHONUNBUFFERED=1
+    command: python main.py --mode paper --days 7.0

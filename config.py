@@ -15,6 +15,9 @@ RISK_PARAMS = {
     'kelly_fraction': 0.5            # Thorp's Half-Kelly
 }
 
+# Paper Trading Settings
+PAPER_INITIAL_BALANCE = 100.0  # Initial capital per asset
+
 # API Configuration
 EXCHANGE_ID = 'kraken' # For Crypto
 

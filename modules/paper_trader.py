@@ -58,7 +58,7 @@ class PaperTrader:
             # Init empty state for new assets
             if symbol not in self.portfolio:
                 self.portfolio[symbol] = {
-                    'balance': 10000.0,
+                    'balance': float(config.PAPER_INITIAL_BALANCE),
                     'inventory': 0.0,
                     'active_orders': [],
                     'trades': []

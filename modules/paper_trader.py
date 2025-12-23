@@ -137,6 +137,10 @@ class PaperTrader:
         equity = state['balance'] + (state['inventory'] * current_price)
         self.risk_manager.update_account_status(equity)
         
+        # Save Reporting Data
+        state['last_price'] = current_price
+        state['equity'] = equity
+        
         signal = strategy.generate_signal(current_price, latest_slice)
         
         # 4. Process Signal

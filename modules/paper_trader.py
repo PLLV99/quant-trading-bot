@@ -166,21 +166,39 @@ class PaperTrader:
             filled = False
             if order['side'] == 'buy' and low <= order['price']:
                 cost = order['price'] * order['size']
-                if state['balance'] >= cost:
-                    state['balance'] -= cost
+                fee = cost * 0.001  # 0.1% Fee
+                total_cost = cost + fee
+                
+                if state['balance'] >= total_cost:
+                    state['balance'] -= total_cost
                     state['inventory'] += order['size']
-                    state['trades'].append({'side': 'buy', 'price': order['price'], 'size': order['size'], 'time': str(datetime.now())})
+                    state['trades'].append({
+                        'side': 'buy', 
+                        'price': order['price'], 
+                        'size': order['size'], 
+                        'fee': fee,
+                        'time': str(datetime.now())
+                    })
                     filled = True
-                    logger.info(f"[{symbol}] BUY FILLED @ {order['price']:.2f}")
+                    logger.info(f"[{symbol}] BUY FILLED @ {order['price']:.2f} (Fee: ${fee:.2f})")
                     
             elif order['side'] == 'sell' and high >= order['price']:
                  if state['inventory'] >= order['size']:
                     rev = order['price'] * order['size']
-                    state['balance'] += rev
+                    fee = rev * 0.001 # 0.1% Fee
+                    net_rev = rev - fee
+                    
+                    state['balance'] += net_rev
                     state['inventory'] -= order['size']
-                    state['trades'].append({'side': 'sell', 'price': order['price'], 'size': order['size'], 'time': str(datetime.now())})
+                    state['trades'].append({
+                        'side': 'sell', 
+                        'price': order['price'], 
+                        'size': order['size'], 
+                        'fee': fee,
+                        'time': str(datetime.now())
+                    })
                     filled = True
-                    logger.info(f"[{symbol}] SELL FILLED @ {order['price']:.2f}")
+                    logger.info(f"[{symbol}] SELL FILLED @ {order['price']:.2f} (Fee: ${fee:.2f})")
             
             if filled:
                 filled_count += 1

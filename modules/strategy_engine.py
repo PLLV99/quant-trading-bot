@@ -132,7 +132,7 @@ class StrategyEngine:
         # 5. Risk Check (The Fortress)
         # Ask Risk Manager for Safe Position Size
         safe_size = self.risk_manager.calculate_position_size(
-            account_balance=10000, # Mock balance
+            account_balance=config.PAPER_INITIAL_BALANCE,
             current_volatility_atr=atr,
             price=current_price
         )

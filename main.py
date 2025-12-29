@@ -9,11 +9,12 @@ from modules.risk_manager import RiskManager
 from modules.backtester import Backtester
 from modules.data_loader import DataLoader
 
-def run_backtest_portfolio(days=30):
+def run_backtest_portfolio(days=30, strategy_mode='grid'):
     """
     Runs backtest on all assets defined in PORTFOLIO_CONFIG.
+    strategy_mode: 'grid' (legacy) or 'gold_ha' (Heikin Ashi + EMA)
     """
-    print(f"\n=== [Anti-Fragile Portfolio] Running Multi-Asset Backtest ({days} Days) ===")
+    print(f"\n=== [Anti-Fragile Portfolio] Running Multi-Asset Backtest ({days} Days, Strategy: {strategy_mode}) ===")
     
     loader = DataLoader(default_exchange_id=config.EXCHANGE_ID)
     
@@ -40,7 +41,7 @@ def run_backtest_portfolio(days=30):
         
         risk_manager = RiskManager(config.RISK_PARAMS)
         strategy_engine = StrategyEngine(symbol=symbol, risk_manager=risk_manager, config_override=config.STRATEGY_PARAMS)
-        backtester = Backtester(strategy_engine, initial_balance=asset_initial_balance)
+        backtester = Backtester(strategy_engine, initial_balance=asset_initial_balance, strategy_mode=strategy_mode)
         
         # 3. Run Simulation
         try:
@@ -96,11 +97,12 @@ def main():
     parser.add_argument('--mode', choices=['live', 'backtest', 'paper'], default='backtest', help='Operation mode')
     parser.add_argument('--symbol', type=str, default=None, help='(Optional) Run specific symbol only')
     parser.add_argument('--days', type=float, default=30.0, help='Backtest duration')
+    parser.add_argument('--strategy', choices=['grid', 'gold_ha'], default='grid', help='Strategy mode: grid (legacy) or gold_ha (Heikin Ashi + EMA)')
     
     args = parser.parse_args()
     
     if args.mode == 'backtest':
-        run_backtest_portfolio(days=args.days)
+        run_backtest_portfolio(days=args.days, strategy_mode=args.strategy)
         
     elif args.mode == 'paper':
         from modules.paper_trader import PaperTrader

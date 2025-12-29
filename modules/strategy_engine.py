@@ -19,10 +19,13 @@ class StrategyEngine:
 
         # Default Config (can be overridden)
         self.config = {
-            "grid_levels": 20,
-            "base_grid_step_pct": 0.01,  # 1% base step
-            "trend_ma_period": 200,  # Simple Moving Average for Trend
+            "grid_levels": 10,       # Reduced from 20
+            "base_grid_step_pct": 0.01,
+            "trend_ma_period": 50,   # Trend Filter (was 200) - Faster for M15
+            "ema_fast": 9,           # Was 18
+            "ema_medium": 21,        # Was 35
             "min_atr_period": 14,
+            "rsi_period": 14,
         }
         if config_override:
             self.config.update(config_override)
@@ -46,16 +49,24 @@ class StrategyEngine:
         # Simple ATR (Rolling Mean of TR)
         price_history["atr"] = true_range.rolling(self.config["min_atr_period"]).mean()
 
-        # Calculate Trend (EMA 200, 18, 35)
+
+        # Calculate Trend (EMA 50, 9, 21)
         price_history["ema_200"] = (
-            price_history["close"].ewm(span=200, adjust=False).mean()
+            price_history["close"].ewm(span=self.config["trend_ma_period"], adjust=False).mean()
         )
         price_history["ema_18"] = (
-            price_history["close"].ewm(span=18, adjust=False).mean()
+            price_history["close"].ewm(span=self.config["ema_fast"], adjust=False).mean()
         )
         price_history["ema_35"] = (
-            price_history["close"].ewm(span=35, adjust=False).mean()
+            price_history["close"].ewm(span=self.config["ema_medium"], adjust=False).mean()
         )
+        
+        # Calculate RSI
+        delta = price_history["close"].diff()
+        gain = (delta.where(delta > 0, 0)).rolling(window=self.config["rsi_period"]).mean()
+        loss = (-delta.where(delta < 0, 0)).rolling(window=self.config["rsi_period"]).mean()
+        rs = gain / loss
+        price_history["rsi"] = 100 - (100 / (1 + rs))
 
         # Calculate Heikin Ashi
         price_history = self._calculate_heikin_ashi(price_history)
@@ -204,16 +215,22 @@ class StrategyEngine:
         signal = {"action": "hold", "trend": self.current_trend}
 
         # Core Logic
-        # 1. Uptrend Filter: Price MUST be above EMA 200
+        # 1. Uptrend Filter: Price MUST be above EMA 50 (Macro Trend)
         is_uptrend_macro = current_price > ema_200
 
-        # 2. Entry Trigger: EMA 18 is above EMA 35
+        # 2. Entry Trigger: EMA 9 is above EMA 21
         is_bullish_cross = ema_18 > ema_35
+        
+        # 3. RSI Momentum Filter (New)
+        # Buy only if RSI > 50 (Momentum is Bullish) but < 70 (Not Overbought)
+        rsi = row.get("rsi", 50)
+        is_momentum_good = 50 < rsi < 80
 
-        if is_uptrend_macro and is_bullish_cross:
+        if is_uptrend_macro and is_bullish_cross and is_momentum_good:
             signal["action"] = "buy_signal"  # Signal to enter Long
 
         elif ema_18 < ema_35:
+            signal["action"] = "sell_signal"  # Signal to Exit Long
             signal["action"] = "sell_signal"  # Signal to Exit Long
 
         return signal

@@ -14,9 +14,10 @@ from modules.risk_manager import RiskManager
 
 # --- CONFIGURATION ---
 PORTFOLIO = [
-    {"symbol": "XAUUSDm", "mode": "gold_ha", "timeframe": mt5.TIMEFRAME_H1},
-    {"symbol": "BTCUSDm", "mode": "gold_ha", "timeframe": mt5.TIMEFRAME_H1},
-    {"symbol": "ETHUSDm", "mode": "gold_ha", "timeframe": mt5.TIMEFRAME_H1},
+    {"symbol": "XAUUSDm", "mode": "gold_ha", "timeframe": mt5.TIMEFRAME_M15},
+    {"symbol": "EURUSDm", "mode": "gold_ha", "timeframe": mt5.TIMEFRAME_M15},
+    {"symbol": "USOILm", "mode": "gold_ha", "timeframe": mt5.TIMEFRAME_M15},  # Oil (Energy sector)
+    {"symbol": "BTCUSDm", "mode": "gold_ha", "timeframe": mt5.TIMEFRAME_M15},
 ]
 CHECK_INTERVAL_SEC = 60  # Check every minute
 

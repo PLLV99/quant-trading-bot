@@ -54,26 +54,28 @@ class RiskManager:
 
     def calculate_position_size(self, account_balance: float, current_volatility_atr: float, price: float) -> float:
         """
-        Calculates safe position size using Dalio's Volatility Sizing & Thorp's Kelly.
+        Calculates safe position size using Sniper Logic ($300 Account).
+        Hard Cap Risk: $6 per trade.
         """
-        # 1. Base Size (e.g. 5% of equity per grid level) - Placeholder, usually dynamic
-        base_risk_per_trade = 0.02 # Risking 2% per trade
+        # 1. Hard Risk Limit ($6)
+        risk_per_trade_usd = 6.0 
         
-        # 2. Turtle/Dalio Adjustment: Size is INVERSE to Volatility
-        # If ATR is high (volatile), we must trade smaller to keep dollar-risk constant.
-        # Implied Stop Distance = 3 * ATR
-        risk_per_share = current_volatility_atr * self.stop_loss_atr_multiplier
+        # 2. Stop Loss Distance (Volatility Based)
+        # Use 2.5x ATR for tighter stops on M15
+        stop_loss_distance = current_volatility_atr * 2.5
         
-        if risk_per_share == 0:
+        if stop_loss_distance == 0:
             return 0.0
         
-        # Dollar Risk Budget = Account * 2%
-        dollar_risk_budget = account_balance * base_risk_per_trade
+        # 3. Position Size Calculation
+        # Size = Risk / Stop Distance
+        safe_units = risk_per_trade_usd / stop_loss_distance
         
-        # Position Size (Units) = Dollar Risk / Risk Per Share
-        safe_units = dollar_risk_budget / risk_per_share
+        # 4. Micro Lot Rounding (Minimum 0.01 lot usually)
+        # Assuming standard contract sizes, logic might need adjustment per asset class in connector
+        # For now, return raw units, connector handles lot normalization
         
-        # 3. Circuit Breaker Penalty
+        # 5. Circuit Breaker Penalty
         if self.circuit_breaker_active:
             print(f"[DEFENSE] Circuit Breaker Active: Halving position size.")
             safe_units *= 0.5

@@ -32,7 +32,7 @@ Ensure MT5 is open and Algo Trading is ENABLED (Green Play Button).
 python scripts/run_mt5_live.py
 ```
 
-The bot will launch and start monitoring `XAUUSDm`, `BTCUSDm`, and `ETHUSDm`.
+The bot will launch and start monitoring `XAUUSDm`, `EURUSDm`, `USOILm`, and `BTCUSDm`.
 
 ## ⚙️ Configuration
 - **Assets:** Edit `scripts/run_mt5_live.py` (Modify the `PORTFOLIO` list).

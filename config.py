@@ -35,15 +35,9 @@ PORTFOLIO_CONFIG = [
         'exchange_id': 'binanceus'
     },
     {
-        'symbol': 'ETH/USDT',
+        'symbol': 'BTC/USDT',
         'type': 'crypto',
-        'source': 'exchange',
-        'exchange_id': 'binanceus'
-    },
-    {
-        'symbol': 'BNB/USDT',
-        'type': 'crypto',
-        'source': 'exchange',
+        'source': 'exchange', 
         'exchange_id': 'binanceus'
     }
     # Inactive / Examples

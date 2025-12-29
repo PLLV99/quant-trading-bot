@@ -13,10 +13,11 @@ class Backtester:
     - 0.1% Fee per trade
     """
 
-    def __init__(self, strategy_engine, initial_balance=10000.0, verbose=True):
+    def __init__(self, strategy_engine, initial_balance=10000.0, verbose=True, strategy_mode='grid'):
         self.strategy = strategy_engine
         self.initial_balance = initial_balance
         self.verbose = verbose
+        self.strategy_mode = strategy_mode  # 'grid' or 'gold_ha'
         self.balance = initial_balance
         self.inventory = 0.0  # Coin amount
         self.active_orders = (
@@ -59,10 +60,51 @@ class Backtester:
 
             # 3. Generate Strategy Signals
             market_slice = row
-            signal = self.strategy.generate_signal(current_price, market_slice)
+            signal = self.strategy.generate_signal(current_price, market_slice, strategy_mode=self.strategy_mode)
 
             # 4. Process Signal
-            if signal.get("action") == "update_grid":
+            if self.strategy_mode == 'gold_ha':
+                # Heikin Ashi Strategy: Buy/Sell signals (not grid)
+                action = signal.get("action")
+                
+                if action == "buy_signal" and self.inventory == 0:
+                    # Enter long position
+                    size = self._calculate_position_size(current_price, row.get("atr", current_price * 0.02))
+                    cost = current_price * size
+                    if self.balance >= cost:
+                        self.balance -= cost
+                        self.inventory += size
+                        fee = cost * self.fee_rate
+                        self.balance -= fee
+                        
+                        self.trade_history.append({
+                            "time": timestamp,
+                            "side": "buy",
+                            "price": current_price,
+                            "size": size,
+                            "fee": fee,
+                            "cost": cost,
+                        })
+                
+                elif action == "sell_signal" and self.inventory > 0:
+                    # Exit long position
+                    revenue = current_price * self.inventory
+                    self.balance += revenue
+                    fee = revenue * self.fee_rate
+                    self.balance -= fee
+                    
+                    self.trade_history.append({
+                        "time": timestamp,
+                        "side": "sell",
+                        "price": current_price,
+                        "size": self.inventory,
+                        "fee": fee,
+                        "revenue": revenue,
+                    })
+                    self.inventory = 0.0
+                    
+            elif signal.get("action") == "update_grid":
+                # Original Grid Strategy
                 self.active_orders = []
 
                 size = signal.get("suggested_size_per_grid", 0)
@@ -82,6 +124,27 @@ class Backtester:
                             )
 
         self._generate_report()
+
+    def _calculate_position_size(self, current_price, atr):
+        """
+        Calculate position size for Heikin Ashi strategy.
+        Uses 2% risk per trade similar to main risk manager.
+        """
+        base_risk_pct = 0.02  # 2% of balance
+        dollar_risk = self.balance * base_risk_pct
+        
+        # Risk per share = 3x ATR (stop loss distance)
+        stop_distance = atr * 3.0
+        
+        if stop_distance > 0:
+            position_size = dollar_risk / stop_distance
+            # Cap at 10% of balance to avoid over-leverage
+            max_position_value = self.balance * 0.1
+            max_size = max_position_value / current_price
+            return min(position_size, max_size)
+        
+        return 0.0
+
 
     def _prepare_indicators(self, data):
         return self.strategy.add_indicators(data)

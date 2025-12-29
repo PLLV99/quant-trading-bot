@@ -161,8 +161,9 @@ class StrategyEngine:
         """
         # 1. Update Indicators
         # market_data is now expected to be the Last Row of the DF with all indicators
-        atr = market_data["atr"]
-        ema_200 = market_data["ema_200"]
+        # Extract scalar values if Series is passed
+        atr = market_data["atr"].iloc[-1] if hasattr(market_data["atr"], 'iloc') else market_data["atr"]
+        ema_200 = market_data["ema_200"].iloc[-1] if hasattr(market_data["ema_200"], 'iloc') else market_data["ema_200"]
 
         # 2. Check Trend (General)
         # For Grid: SMA vs Price. For Gold: EMA 200 vs Price.
@@ -174,6 +175,9 @@ class StrategyEngine:
         # --- ORGINAL GRID LOGIC BELOW ---
 
         sma = market_data.get("sma_trend", ema_200)  # Fallback
+        # Extract scalar if needed
+        if hasattr(sma, 'iloc'):
+            sma = sma.iloc[-1]
         self.current_trend = self.determine_trend(current_price, sma)
 
         # 3. Dynamic Grid Logic
@@ -208,9 +212,13 @@ class StrategyEngine:
         Buy: Price > EMA 200 AND EMA 18 > EMA 35 (Crossover/Stacked)
         Sell: Exit when EMA 18 < EMA 35 (Cross down)
         """
-        ema_18 = row["ema_18"]
-        ema_35 = row["ema_35"]
-        ema_200 = row["ema_200"]
+        # Extract scalar values from Series if needed
+        ema_18 = row["ema_18"].iloc[-1] if hasattr(row["ema_18"], 'iloc') else row["ema_18"]
+        ema_35 = row["ema_35"].iloc[-1] if hasattr(row["ema_35"], 'iloc') else row["ema_35"]
+        ema_200 = row["ema_200"].iloc[-1] if hasattr(row["ema_200"], 'iloc') else row["ema_200"]
+        rsi = row.get("rsi", 50)
+        if hasattr(rsi, 'iloc'):
+            rsi = rsi.iloc[-1]
 
         signal = {"action": "hold", "trend": self.current_trend}
 
@@ -223,14 +231,12 @@ class StrategyEngine:
         
         # 3. RSI Momentum Filter (New)
         # Buy only if RSI > 50 (Momentum is Bullish) but < 70 (Not Overbought)
-        rsi = row.get("rsi", 50)
         is_momentum_good = 50 < rsi < 80
 
         if is_uptrend_macro and is_bullish_cross and is_momentum_good:
             signal["action"] = "buy_signal"  # Signal to enter Long
 
         elif ema_18 < ema_35:
-            signal["action"] = "sell_signal"  # Signal to Exit Long
             signal["action"] = "sell_signal"  # Signal to Exit Long
 
         return signal

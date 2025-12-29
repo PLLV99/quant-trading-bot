@@ -23,6 +23,7 @@ def test_strategy_engine():
     # Price going UP, Low Volatility
     dates = pd.date_range(start='2024-01-01', periods=300, freq='h')
     data_bull = pd.DataFrame({
+        'open': np.linspace(100, 200, 300),
         'high': np.linspace(100, 200, 300) + 1,
         'low': np.linspace(100, 200, 300) - 1,
         'close': np.linspace(100, 200, 300)
@@ -61,6 +62,7 @@ def test_strategy_engine():
     print("\nTest Condition 3: Bearish Trend Filter")
     # Generate Bearish Data
     data_bear = pd.DataFrame({
+        'open': np.linspace(200, 100, 300),
         'high': np.linspace(200, 100, 300) + 1,
         'low': np.linspace(200, 100, 300) - 1,
         'close': np.linspace(200, 100, 300)

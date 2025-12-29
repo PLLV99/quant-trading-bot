@@ -10,5 +10,8 @@
 *   **"CCXT Library Documentation"**: Manual for connecting to exchanges.
 
 ## 3. Project Context
-*   `trading_bot/implementation_plan.md`: The master plan for the bot.
-*   `trading_bot/modules/risk_manager.py`: Where the safety logic lives.
+*   **Current System**: MetaTrader 5 (Exness) - Gold/Bitcoin/Ethereum Trading
+*   **Main Entry Point**: `scripts/run_mt5_live.py` - Live trading bot
+*   **Backtesting**: `main.py` - Historical simulation (legacy Binance config)
+*   **Strategy**: Heikin Ashi + EMA (18/35/200) trend following
+

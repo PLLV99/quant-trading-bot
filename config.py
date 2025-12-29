@@ -1,4 +1,8 @@
 # Grid Trading Configuration
+# NOTE: This config is used by main.py for BACKTESTING ONLY.
+# The live MT5 bot (scripts/run_mt5_live.py) uses its own hardcoded settings.
+# This file contains legacy Binance settings from earlier development.
+
 
 # Global Strategy Parameters (The Engine)
 STRATEGY_PARAMS = {

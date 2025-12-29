@@ -1,9 +1,10 @@
 # Working Agreement: Quant & AI Co-Pilot
 
 ## Core Philosophy
-We are building a **Financial System**. Precision and Safety are valued above speed.
+We are building a **Live Trading System** on MetaTrader 5 (Exness). Precision and Safety are valued above speed.
 - **Human (User)**: The "Architect" and "Risk Controller". Final authority on all trade logic and money deployment.
 - **AI (Antigravity)**: The "Builder" and "Validator". Responsible for code quality, adherence to protocols, and safety checks.
+
 
 ## 1. Safety Protocols (The "Red Lines")
 *   **No Unauth Trades**: AI will NEVER execute a live trade or execute a command that moves real money without explicit User confirmation (Type "CONFIRM").

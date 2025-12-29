@@ -3,9 +3,9 @@
 High-performance Quantitative Trading Bot designed for **Gold (XAUUSD)** and **Crypto (BTC/ETH)** on Exness MetaTrader 5.
 
 ## 🚀 Features
-- **Multi-Asset Support:** Trades Gold, Bitcoin, and Ethereum simultaneously.
-- **Strategy:** Heikin Ashi Trend Following + EMA Crossovers (18/35/200).
-- **Risk Management:** Anti-Fragile sizing, Kelly Criterion, and ATR-based Stops.
+- **Multi-Asset Support:** Trades Gold, Euro, Oil, and Bitcoin.
+- **Strategy:** "Sniper" Heikin Ashi + EMA (9/21/50) + RSI Filter on M15.
+- **Risk Management:** $6 Hard Cap per trade (Anti-Fragile), 2.5x ATR dynamic stops.
 - **Platform:** Exness MetaTrader 5 (Windows).
 
 ## 🛠️ Installation
@@ -36,4 +36,5 @@ The bot will launch and start monitoring `XAUUSDm`, `EURUSDm`, `USOILm`, and `BT
 
 ## ⚙️ Configuration
 - **Assets:** Edit `scripts/run_mt5_live.py` (Modify the `PORTFOLIO` list).
-- **Risk Settings:** Edit `config.py`.
+- **Strategy:** Edit `modules/strategy_engine.py` (EMA/RSI settings).
+- **Risk:** Edit `modules/risk_manager.py` ($6 cap rule).

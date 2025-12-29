@@ -53,18 +53,26 @@ python scripts\run_mt5_live.py
 
 ## Configuration
 
-### Assets (Default)
-- **XAUUSDm** (Gold)
-- **BTCUSDm** (Bitcoin)
-- **ETHUSDm** (Ethereum)
+## Configuration
+
+### Assets (Sniper Portfolio)
+- **XAUUSDm** (Gold) - The "King"
+- **EURUSDm** (Euro) - Stability
+- **USOILm** (Oil) - Energy Play
+- **BTCUSDm** (Bitcoin) - High Growth
 
 To modify: Edit `scripts/run_mt5_live.py` → `PORTFOLIO` variable
 
+### Sniper Strategy Settings
+The bot is pre-configured for **M15 Timeframe** with:
+- **EMA**: 9 / 21 / 50
+- **RSI**: 14 (Momentum > 50)
+- **Risk**: Hard cap $6 per trade
+
 ### Risk Settings
-Edit `config.py`:
-- `max_drawdown_limit`: Circuit breaker threshold
-- `kelly_fraction`: Position sizing multiplier
-- `stop_loss_atr_multiplier`: Stop loss distance
+Edit `modules/risk_manager.py` to adjust:
+- `risk_per_trade_usd`: Currently set to **6.0**
+- `stop_loss_distance`: Currently set to **2.5x ATR**
 
 ---
 

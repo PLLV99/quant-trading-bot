@@ -79,7 +79,7 @@ def run_backtest_portfolio(days=30, strategy_mode='grid'):
     
     if not portfolio_results:
         print("No trades executed.")
-        return
+        return []
 
     df_res = pd.DataFrame(portfolio_results)
     # Format for pretty printing
@@ -89,7 +89,10 @@ def run_backtest_portfolio(days=30, strategy_mode='grid'):
     total_pnl = total_final_balance - total_initial_balance
     total_ret = (total_pnl / total_initial_balance) * 100
     print(f"TOTAL PORTFOLIO RETURN: {total_ret:.2f}%  (${total_pnl:.2f})")
+    print(f"TOTAL PORTFOLIO RETURN: {total_ret:.2f}%  (${total_pnl:.2f})")
     print("="*50)
+    
+    return portfolio_results
 
 
 def main():

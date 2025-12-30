@@ -38,29 +38,53 @@ class Backtester:
 
         # Pre-calculate indicators
         data = self._prepare_indicators(data)
+        
+        last_date = None
 
         for index, row in data.iterrows():
             current_price = row["close"]
             high = row["high"]
             low = row["low"]
             timestamp = index
-
+            
+            # --- FTMO Day Reset Logic ---
+            current_date = timestamp.date()
+            if last_date is None or current_date != last_date:
+                # New Day Detected (00:00 equivalent)
+                # We use the OPENING equity of the day as the separate locked baseline for calculations
+                # But here, we just use current balance as approximation or let RiskManager handle it
+                self.strategy.risk_manager.reset_daily_stats(self.balance + (self.inventory * current_price))
+                last_date = current_date
+            
             # 1. Update Portfolio Value (Mark-to-Market)
             portfolio_value = self.balance + (self.inventory * current_price)
 
             # Update Risk Manager with current equity (for Drawdown tracking)
             self.strategy.risk_manager.update_account_status(portfolio_value)
-
+            
+            # --- Check FTMO Daily Limits ---
+            is_allowed, reason = self.strategy.risk_manager.check_daily_status(portfolio_value)
+            
             self.equity_curve.append(
                 {"time": timestamp, "equity": portfolio_value, "price": current_price}
             )
+            
+            if not is_allowed:
+                # Trading Halted for the day. Close positions? 
+                # FTMO Rule: "You don't HAVE to close, but you can't open new ones." 
+                # Actually, if Daily Loss Hit, usually you just stop. 
+                # But if "Hard Stop" is enabled (in our config), we might want to force close.
+                # For now, we just SKIP generating new signals (Freeze).
+                # To be safer, we should clear active orders.
+                self.active_orders = [] 
+                continue 
 
             # 2. Check Order Fills (Engine)
             self._check_fills(high, low, timestamp)
 
             # 3. Generate Strategy Signals
             market_slice = row
-            signal = self.strategy.generate_signal(current_price, market_slice, strategy_mode=self.strategy_mode)
+            signal = self.strategy.generate_signal(current_price, market_slice, current_balance=portfolio_value, strategy_mode=self.strategy_mode)
 
             # 4. Process Signal
             if self.strategy_mode == 'gold_ha':
@@ -85,6 +109,7 @@ class Backtester:
                             "fee": fee,
                             "cost": cost,
                         })
+                        self.strategy.last_trade_time = timestamp
                 
                 elif action == "sell_signal" and self.inventory > 0:
                     # Exit long position
@@ -102,6 +127,7 @@ class Backtester:
                         "revenue": revenue,
                     })
                     self.inventory = 0.0
+                    self.strategy.last_trade_time = timestamp
                     
             elif signal.get("action") == "update_grid":
                 # Original Grid Strategy
@@ -174,6 +200,7 @@ class Backtester:
                         }
                     )
                     filled = True
+                    self.strategy.last_trade_time = timestamp
 
             # SELL ORDER: Fill if High >= Order Price
             elif order["side"] == "sell" and high >= order["price"]:
@@ -195,6 +222,7 @@ class Backtester:
                         }
                     )
                     filled = True
+                    self.strategy.last_trade_time = timestamp
 
             if not filled:
                 remaining_orders.append(order)

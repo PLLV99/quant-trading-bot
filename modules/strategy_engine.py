@@ -34,6 +34,7 @@ class StrategyEngine:
         self.grid_buy_orders = []  # List of prices
         self.grid_sell_orders = []  # List of prices
         self.current_trend = "neutral"  # bullish, bearish, neutral
+        self.last_trade_time = None  # Cooldown tracker
 
     def add_indicators(self, price_history):
         """
@@ -154,7 +155,7 @@ class StrategyEngine:
             return "bearish"
         return "neutral"
 
-    def generate_signal(self, current_price, market_data, strategy_mode="grid"):
+    def generate_signal(self, current_price, market_data, current_balance, strategy_mode="grid"):
         """
         Main Decision Function.
         Supports 'grid' (Original) and 'gold_ha' (Heikin Ashi Trend)
@@ -166,45 +167,78 @@ class StrategyEngine:
         ema_200 = market_data["ema_200"].iloc[-1] if hasattr(market_data["ema_200"], 'iloc') else market_data["ema_200"]
 
         # 2. Check Trend (General)
-        # For Grid: SMA vs Price. For Gold: EMA 200 vs Price.
-        self.current_trend = "bullish" if current_price > ema_200 else "bearish"
+        # For Grid: SMA vs Price. For Gold:        # --- NEW: Sniper Filters (Phase 2 Upgrade) ---
+        
+        # 0. Cooldown Check (Anti-Machine Gun)
+        current_time = market_data.name # Timestamp
+        if self.last_trade_time:
+            time_diff = (current_time - self.last_trade_time).total_seconds() / 60
+            cooldown_min = config.STRATEGY_PARAMS.get('cooldown_minutes', 15)
+            if time_diff < cooldown_min:
+                # Still cooling down
+                return {"action": "hold", "reason": "cooldown_active"}
 
-        if strategy_mode == "gold_ha":
+        # 1. Trend Filter (EMA 200)
+        # We need to make sure we have enough data
+        ema_trend = market_data.get('ema_200', None) 
+        if ema_trend is None and 'close' in market_data:
+             # Fallback if not pre-calculated (rough approx or wait)
+             # Ideally backtester provides this. If not, we skip filter or warn.
+             pass 
+        
+        # 2. RSI Momentum
+        rsi = market_data.get('rsi', 50)
+        rsi_ob = config.STRATEGY_PARAMS.get('rsi_overbought', 70)
+        rsi_os = config.STRATEGY_PARAMS.get('rsi_oversold', 30)
+
+        # --- Strategy Logic ---
+        
+        if strategy_mode == 'grid':
+            # --- Original Grid Logic REFACTORED for Sniper Mode ---
+            
+            # 1. Filter Check (Trend & RSI)
+            trend_allows_buy = True
+            if ema_trend:
+                if current_price < ema_trend:
+                    trend_allows_buy = False # Bearish Trend -> NO BUYS
+            
+            momentum_allows_buy = True
+            if rsi > rsi_ob:
+                momentum_allows_buy = False
+            
+            # 2. Risk Manager Check (Gatekeeper)
+            if not self.risk_manager.check_trade_allowed('buy', current_price):
+                 return {"action": "hold", "reason": "risk_manager_reject"}
+
+            # 3. Dynamic Grid Calculation
+            # Calculate levels based on ATR
+            self.calculate_dynamic_grid(current_price, atr)
+
+            # 4. Position Sizing
+            safe_size = self.risk_manager.calculate_position_size(
+                account_balance=current_balance,
+                current_volatility_atr=atr,
+                price=current_price,
+            )
+
+            # 5. Construct Signal
+            # Only include Buy Levels if Filters Pass
+            final_buy_levels = self.grid_buy_orders if (trend_allows_buy and momentum_allows_buy) else []
+            
+            # If both buy/sell empty?
+            if not final_buy_levels and not self.grid_sell_orders:
+                 return {"action": "hold", "reason": "filters_blocked_all"}
+
+            return {
+                "action": "update_grid",
+                "buy_levels": final_buy_levels,
+                "sell_levels": self.grid_sell_orders,
+                "suggested_size_per_grid": safe_size,
+                "trend": "bullish" if trend_allows_buy else "bearish",
+            }
+
+        elif strategy_mode == 'gold_ha':
             return self._generate_gold_signal(current_price, market_data)
-
-        # --- ORGINAL GRID LOGIC BELOW ---
-
-        sma = market_data.get("sma_trend", ema_200)  # Fallback
-        # Extract scalar if needed
-        if hasattr(sma, 'iloc'):
-            sma = sma.iloc[-1]
-        self.current_trend = self.determine_trend(current_price, sma)
-
-        # 3. Dynamic Grid Logic
-        step_size, num_levels = self.calculate_dynamic_grid(current_price, atr)
-
-        # print(f"[Strategy] Price: {current_price:.2f} | Trend: {self.current_trend} | ATR: {atr:.2f}")
-
-        # 4. Filter Logic (Simons)
-        allow_buys = True
-        if self.current_trend == "bearish":
-            # print("           [STOP] Trend is Bearish. Pausing Buy Grid creation.")
-            allow_buys = False
-
-        # 5. Risk Check
-        safe_size = self.risk_manager.calculate_position_size(
-            account_balance=config.PAPER_INITIAL_BALANCE,
-            current_volatility_atr=atr,
-            price=current_price,
-        )
-
-        return {
-            "action": "update_grid",
-            "buy_levels": self.grid_buy_orders if allow_buys else [],
-            "sell_levels": self.grid_sell_orders,
-            "suggested_size_per_grid": safe_size,
-            "trend": self.current_trend,
-        }
 
     def _generate_gold_signal(self, current_price, row):
         """

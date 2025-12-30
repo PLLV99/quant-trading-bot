@@ -7,16 +7,30 @@
 # Global Strategy Parameters (The Engine)
 STRATEGY_PARAMS = {
     'grid_levels': 20,
-    'base_grid_step_pct': 0.01,  # 1% standard step
-    'trend_ma_period': 200,      # Trend Filter (Simons)
+    'grid_step_percent': 0.005,  # 0.5% Grid Step
+    'take_profit_percent': 0.005,# 0.5% TP per grid level
+    'ema_period': 200,           # Trend Filter
+    'rsi_period': 14,            # Momentum
+    'rsi_overbought': 70,        # Don't Buy above this
+    'rsi_oversold': 30,          # Don't Sell below this
+    'cooldown_minutes': 15,      # Anti-Machine Gun (Minutes)
+    'max_active_grids': 5,       # Limit total open gridster (Simons)
     'min_atr_period': 14         # Volatility Window
 }
 
 # Global Risk Parameters (The Fortress)
+# Global Risk Parameters (The Fortress)
 RISK_PARAMS = {
-    'max_drawdown_limit': 0.15,      # 15% Hard Stop (Circuit Breaker)
+    'max_drawdown_limit': 0.15,      # 15% Hard Stop (Circuit Breaker) - Default for Aggressive
     'stop_loss_atr_multiplier': 3.0, # Turtle 3x ATR Stops
-    'kelly_fraction': 0.5            # Thorp's Half-Kelly
+    'kelly_fraction': 0.5,           # Thorp's Half-Kelly
+    
+    # --- FTMO / Prop Firm Specifics ---
+    'ftmo_mode': True,               # Enable strict daily limits
+    'daily_loss_limit_pct': 0.02,    # 2% Daily Hard Stop
+    'daily_profit_target_pct': 0.01, # 1% Daily Target (Lock profit)
+    'max_drawdown_ftmo_pct': 0.05,   # 5% Max Trailing Drawdown
+    'max_holding_hours': 24,         # Force close if held > 24h
 }
 
 # Paper Trading Settings

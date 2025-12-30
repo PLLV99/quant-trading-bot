@@ -69,10 +69,13 @@ def run_live_bot():
                 current_volume = 0.0
                 if positions:
                     current_volume = sum([p.volume for p in positions])
+                
+                # Get Balance for Risk Manager
+                current_balance = connector.get_balance()
 
                 # 5. Generate Signal
                 signal = strategy.generate_signal(
-                    current_price, current_row, strategy_mode=mode
+                    current_price, current_row, current_balance, strategy_mode=mode
                 )
                 action = signal["action"]
                 trend = signal["trend"]

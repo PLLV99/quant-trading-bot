@@ -31,6 +31,13 @@ RISK_PARAMS = {
     'daily_profit_target_pct': 0.01, # 1% Daily Target (Lock profit)
     'max_drawdown_ftmo_pct': 0.05,   # 5% Max Trailing Drawdown
     'max_holding_hours': 24,         # Force close if held > 24h
+    
+    # --- NEW: Enhanced Risk Engine (Option A) ---
+    'martingale_detection_enabled': True,   # Detect increasing lot sizes
+    'floating_loss_limit_pct': 0.03,        # 3% unrealized loss triggers CB
+    'losing_streak_threshold': 3,           # N losses -> reduce risk by 50%
+    'volatility_scaling_enabled': True,     # Scale size by ATR ratio
+    'normal_atr': None,                     # Set dynamically or use historical avg
 }
 
 # Paper Trading Settings

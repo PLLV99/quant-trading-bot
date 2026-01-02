@@ -13,13 +13,23 @@ from modules.strategy_engine import StrategyEngine
 from modules.risk_manager import RiskManager
 
 # --- CONFIGURATION ---
+# REDUCED PORTFOLIO: Only trade 2 symbols to avoid overtrading
 PORTFOLIO = [
     {"symbol": "XAUUSDm", "mode": "gold_ha", "timeframe": mt5.TIMEFRAME_M15},
     {"symbol": "EURUSDm", "mode": "gold_ha", "timeframe": mt5.TIMEFRAME_M15},
-    {"symbol": "USOILm", "mode": "gold_ha", "timeframe": mt5.TIMEFRAME_M15},  # Oil (Energy sector)
-    {"symbol": "BTCUSDm", "mode": "gold_ha", "timeframe": mt5.TIMEFRAME_M15},
+    # Disabled for now to reduce trades:
+    # {"symbol": "USOILm", "mode": "gold_ha", "timeframe": mt5.TIMEFRAME_M15},
+    # {"symbol": "BTCUSDm", "mode": "gold_ha", "timeframe": mt5.TIMEFRAME_M15},
 ]
-CHECK_INTERVAL_SEC = 60  # Check every minute
+
+# --- POSITION LIMITS (Prevent Overtrading) ---
+MAX_TOTAL_POSITIONS = 2      # Max 2 positions across all symbols
+MAX_PER_SYMBOL = 1           # Max 1 position per symbol
+COOLDOWN_MINUTES = 30        # Wait 30 min between new trades
+CHECK_INTERVAL_SEC = 60      # Check every minute
+
+# Track last trade time per symbol
+last_trade_time = {}
 
 
 def run_live_bot():
@@ -88,6 +98,26 @@ def run_live_bot():
                 # 6. Execute Trade Logic
                 if action == "buy_signal":
                     if current_volume == 0:
+                        # --- NEW: Position Limit Checks ---
+                        # Check total positions across all symbols
+                        all_positions = mt5.positions_get()
+                        total_positions = len(all_positions) if all_positions else 0
+                        
+                        if total_positions >= MAX_TOTAL_POSITIONS:
+                            print(f"[{ts}] {symbol} >>> BUY blocked: Max {MAX_TOTAL_POSITIONS} positions reached")
+                            continue
+                        
+                        # Check cooldown
+                        now = time.time()
+                        last_time = last_trade_time.get(symbol, 0)
+                        minutes_since = (now - last_time) / 60
+                        
+                        if minutes_since < COOLDOWN_MINUTES and last_time > 0:
+                            remaining = COOLDOWN_MINUTES - minutes_since
+                            print(f"[{ts}] {symbol} >>> BUY blocked: Cooldown {remaining:.0f}min remaining")
+                            continue
+                        
+                        # --- Execute Trade ---
                         print(f"[{ts}] {symbol} >>> BUY SIGNAL! Executing...")
 
                         atr = current_row["atr"]
@@ -105,6 +135,7 @@ def run_live_bot():
                         )
                         if res:
                             print(f"       >>> SUCCESS: Ticket {res.order}")
+                            last_trade_time[symbol] = time.time()  # Update cooldown
 
                 elif action == "sell_signal":
                     if current_volume > 0:

@@ -13,16 +13,16 @@ from modules.strategy_engine import StrategyEngine
 from modules.risk_manager import RiskManager
 
 # --- CONFIGURATION ---
-# REDUCED PORTFOLIO: Only trade 2 symbols to avoid overtrading
+# PORTFOLIO: Forex + Metals + Oil (พี่ต้องการ)
 PORTFOLIO = [
-    {"symbol": "XAUUSDm", "mode": "gold_ha", "timeframe": mt5.TIMEFRAME_M15},
     {"symbol": "EURUSDm", "mode": "gold_ha", "timeframe": mt5.TIMEFRAME_M15},
-    # Disabled for now to reduce trades:
-    # {"symbol": "USOILm", "mode": "gold_ha", "timeframe": mt5.TIMEFRAME_M15},
+    {"symbol": "XAUUSDm", "mode": "gold_ha", "timeframe": mt5.TIMEFRAME_M15},  # Gold
+    {"symbol": "USOILm", "mode": "gold_ha", "timeframe": mt5.TIMEFRAME_M15},   # Oil
+    # Disabled:
     # {"symbol": "BTCUSDm", "mode": "gold_ha", "timeframe": mt5.TIMEFRAME_M15},
 ]
 
-# --- POSITION LIMITS (Prevent Overtrading) ---
+# --- POSITION LIMITS (Max 2 positions แม้มี 3 symbols) ---
 MAX_TOTAL_POSITIONS = 2      # Max 2 positions across all symbols
 MAX_PER_SYMBOL = 1           # Max 1 position per symbol
 COOLDOWN_MINUTES = 30        # Wait 30 min between new trades

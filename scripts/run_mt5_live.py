@@ -13,17 +13,16 @@ from modules.strategy_engine import StrategyEngine
 from modules.risk_manager import RiskManager
 
 # --- CONFIGURATION ---
-# PORTFOLIO: Forex + Metals + Oil (พี่ต้องการ)
+# PORTFOLIO: Forex + Metals + Oil + Crypto (พี่ต้องการ)
 PORTFOLIO = [
     {"symbol": "EURUSDm", "mode": "gold_ha", "timeframe": mt5.TIMEFRAME_M15},
     {"symbol": "XAUUSDm", "mode": "gold_ha", "timeframe": mt5.TIMEFRAME_M15},  # Gold
     {"symbol": "USOILm", "mode": "gold_ha", "timeframe": mt5.TIMEFRAME_M15},   # Oil
-    # Disabled:
-    # {"symbol": "BTCUSDm", "mode": "gold_ha", "timeframe": mt5.TIMEFRAME_M15},
+    {"symbol": "BTCUSDm", "mode": "gold_ha", "timeframe": mt5.TIMEFRAME_M15},  # Bitcoin
 ]
 
-# --- POSITION LIMITS (Max 2 positions แม้มี 3 symbols) ---
-MAX_TOTAL_POSITIONS = 2      # Max 2 positions across all symbols
+# --- POSITION LIMITS ---
+MAX_TOTAL_POSITIONS = 3      # Max 3 positions (พี่ต้องการ)
 MAX_PER_SYMBOL = 1           # Max 1 position per symbol
 COOLDOWN_MINUTES = 30        # Wait 30 min between new trades
 CHECK_INTERVAL_SEC = 60      # Check every minute

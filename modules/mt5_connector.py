@@ -52,13 +52,67 @@ class MT5Connector:
         df.rename(columns={"tick_volume": "volume"}, inplace=True)
         return df[["open", "high", "low", "close", "volume"]]
 
-    def get_balance(self):
+    def get_account_info(self):
         if not self.connected:
             self.connect()
-        acct = mt5.account_info()
-        if acct:
-            return acct.balance
-        return 0.0
+        return mt5.account_info()
+
+    def close_position(self, position_ticket, symbol=None, volume=None, order_type=None):
+        """
+        Universal Close Function (Supports Hedging & Netting).
+        """
+        if not self.connected:
+            self.connect()
+
+        # Get Account Mode (Hedging vs Netting)
+        acct_info = mt5.account_info()
+        is_hedging = acct_info.margin_mode == mt5.ACCOUNT_MARGIN_MODE_RETAIL_HEDGING
+
+        # If Hedging: We must target the specific position ticket
+        if is_hedging:
+            # Type must be opposite of position
+            if order_type is None:
+                 # Need to fetch position to know type if not provided
+                 # For simplicity assume caller provides correct opposite type or we fetch
+                 pass
+            
+            request = {
+                "action": mt5.TRADE_ACTION_DEAL,
+                "symbol": symbol,
+                "volume": float(volume),
+                "type": order_type, # Opposite type
+                "position": int(position_ticket), # CRITICAL for Hedging
+                "price": mt5.symbol_info_tick(symbol).bid if order_type == mt5.ORDER_TYPE_SELL else mt5.symbol_info_tick(symbol).ask,
+                "deviation": 20,
+                "magic": 123456,
+                "comment": "AntiGravity Close",
+                "type_time": mt5.ORDER_TIME_GTC,
+                "type_filling": mt5.ORDER_FILLING_IOC,
+            }
+        
+        # If Netting: We just send an opposite order (No ticket needed)
+        else:
+            request = {
+                "action": mt5.TRADE_ACTION_DEAL,
+                "symbol": symbol,
+                "volume": float(volume),
+                "type": order_type, # Opposite type
+                # No 'position' field for Netting
+                "price": mt5.symbol_info_tick(symbol).bid if order_type == mt5.ORDER_TYPE_SELL else mt5.symbol_info_tick(symbol).ask,
+                "deviation": 20,
+                "magic": 123456,
+                "comment": "AntiGravity Close",
+                "type_time": mt5.ORDER_TIME_GTC,
+                "type_filling": mt5.ORDER_FILLING_IOC,
+            }
+
+        result = mt5.order_send(request)
+        if result.retcode != mt5.TRADE_RETCODE_DONE:
+            print(f"[MT5] Close Failed: {result.comment} ({result.retcode})")
+            return None
+            
+        print(f"[MT5] Close Executed: {result.order}")
+        return result
 
     def place_order(self, symbol, order_type, volume, price=None, sl=0.0, tp=0.0):
         """

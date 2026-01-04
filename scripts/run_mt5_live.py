@@ -120,10 +120,11 @@ def close_positions(connector, symbol, position_type=None):
         if position_type is not None and pos.type != position_type:
             continue
         
+        # Determine opposite type for logging/logic
         type_close = mt5.ORDER_TYPE_SELL if pos.type == mt5.ORDER_TYPE_BUY else mt5.ORDER_TYPE_BUY
-        price_close = mt5.symbol_info_tick(symbol).bid if type_close == mt5.ORDER_TYPE_SELL else mt5.symbol_info_tick(symbol).ask
         
-        connector.place_order(symbol, type_close, pos.volume, price=price_close)
+        # USE UNIVERSAL CLOSE (connector handles Hedging/Netting logic)
+        connector.close_position(pos.ticket, symbol, pos.volume, type_close)
         logger.info(f"{symbol} CLOSED Ticket #{pos.ticket} (Reversal)")
 
 

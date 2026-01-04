@@ -1,6 +1,20 @@
+"""
+AntiGravity Trading Bot - LIVE MT5 Edition
+Version 2.2 - "Wealth Builder" (Personal Growth)
+
+Changes:
+- Mode: Personal Account ($300 Start) allows Aggressive Growth
+- Strategy: Long + Short (Reversing)
+- Portfolio: XAUUSD, BTCUSD, USOIL
+- Sizing: DYNAMIC (Risk % based on Balance)
+- Safety: Stop Loss is Mandatory, but looser than FTMO
+"""
+
 import sys
 import os
 import time
+import logging
+from datetime import datetime
 import pandas as pd
 import MetaTrader5 as mt5
 
@@ -12,160 +26,225 @@ from modules.mt5_connector import MT5Connector
 from modules.strategy_engine import StrategyEngine
 from modules.risk_manager import RiskManager
 
-# --- CONFIGURATION ---
-# PORTFOLIO: Forex + Metals + Oil + Crypto (พี่ต้องการ)
+# =============================================================================
+# CONFIGURATION
+# =============================================================================
 PORTFOLIO = [
-    {"symbol": "EURUSDm", "mode": "gold_ha", "timeframe": mt5.TIMEFRAME_M15},
-    {"symbol": "XAUUSDm", "mode": "gold_ha", "timeframe": mt5.TIMEFRAME_M15},  # Gold
-    {"symbol": "USOILm", "mode": "gold_ha", "timeframe": mt5.TIMEFRAME_M15},   # Oil
-    {"symbol": "BTCUSDm", "mode": "gold_ha", "timeframe": mt5.TIMEFRAME_M15},  # Bitcoin
+    {"symbol": "XAUUSDm", "mode": "gold_ha", "timeframe": mt5.TIMEFRAME_M15},
+    {"symbol": "BTCUSDm", "mode": "gold_ha", "timeframe": mt5.TIMEFRAME_M15},
+    {"symbol": "USOILm", "mode": "gold_ha", "timeframe": mt5.TIMEFRAME_M15},
 ]
 
-# --- POSITION LIMITS ---
-MAX_TOTAL_POSITIONS = 3      # Max 3 positions (พี่ต้องการ)
+# --- PERSONAL GROWTH SAFETY ---
+MAX_TOTAL_POSITIONS = 3      # Max 3 positions
 MAX_PER_SYMBOL = 1           # Max 1 position per symbol
-COOLDOWN_MINUTES = 30        # Wait 30 min between new trades
+COOLDOWN_MINUTES = 30        # Aggressive: 30 min cooldown (was 60)
 CHECK_INTERVAL_SEC = 60      # Check every minute
+EMERGENCY_MAX_POSITIONS = 6  # Halt if exceeded
 
-# Track last trade time per symbol
+# --- RISK/REWARD ---
+RISK_PER_TRADE_PERCENT = 0.03 # Risk 3% of Balance per trade
+SL_ATR_MULT = 2.5             # Stop Loss = 2.5x ATR
+TP_ATR_MULT = 5.0             # Take Profit = 5x ATR (1:2 RR)
+
+# Tracking
 last_trade_time = {}
+last_signal = {}
 
+# =============================================================================
+# LOGGING SETUP
+# =============================================================================
+os.makedirs("logs", exist_ok=True)
+log_file = f"logs/bot_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
 
-def run_live_bot():
-    print(f"\n[LIVE BOT] Launching AntiGravity Multi-Asset Bot...")
-    print(f"   Portfolio: {[p['symbol'] for p in PORTFOLIO]}")
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s | %(levelname)s | %(message)s',
+    handlers=[
+        logging.FileHandler(log_file, encoding='utf-8'),
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger("AntiGravity")
 
-    # 1. Initialize Components
-    connector = MT5Connector()
-    if not connector.connect():
+# =============================================================================
+# HELPER FUNCTIONS
+# =============================================================================
+def calculate_lot_size(symbol, account_balance, risk_pct, sl_distance):
+    """
+    Calculates dynamic lot size based on Risk %.
+    Risk Amount = Balance * Risk%
+    Lot Size = Risk Amount / (SL Distance * Contract Size)
+    """
+    if sl_distance == 0: return 0.01
+
+    risk_amount = account_balance * risk_pct
+    
+    # Get Contract Size (Mock/Safe default if fail)
+    symbol_info = mt5.symbol_info(symbol)
+    if not symbol_info:
+        logger.error(f"Failed to get info for {symbol}")
+        return 0.01
+
+    contract_size = symbol_info.trade_contract_size
+    min_lot = symbol_info.volume_min
+    max_lot = symbol_info.volume_max
+    step_lot = symbol_info.volume_step
+
+    # Formula: Risk = Volume * ContractSize * SL_Price_Diff
+    # Volume = Risk / (ContractSize * SL_Price_Diff)
+    raw_lot = risk_amount / (contract_size * sl_distance)
+    
+    # Round to step
+    # Example: 0.123 -> 0.12 (if step 0.01)
+    # Using simple rounding for robustness
+    lot = round(raw_lot / step_lot) * step_lot
+    
+    # Cap limits
+    lot = max(min_lot, min(lot, max_lot))
+    
+    # Safety Cap for Small Accounts ($300)
+    # Don't open crazy lots if data is weird
+    if account_balance < 500 and lot > 0.1:
+        logger.warning(f"Capping lot size for safety: {lot} -> 0.1")
+        lot = 0.1
+
+    return lot
+
+def close_positions(connector, symbol, position_type=None):
+    positions = mt5.positions_get(symbol=symbol)
+    if not positions:
         return
 
-    # Initialize Risk Manager
-    risk_manager = RiskManager(config.RISK_PARAMS)
+    for pos in positions:
+        if position_type is not None and pos.type != position_type:
+            continue
+        
+        type_close = mt5.ORDER_TYPE_SELL if pos.type == mt5.ORDER_TYPE_BUY else mt5.ORDER_TYPE_BUY
+        price_close = mt5.symbol_info_tick(symbol).bid if type_close == mt5.ORDER_TYPE_SELL else mt5.symbol_info_tick(symbol).ask
+        
+        connector.place_order(symbol, type_close, pos.volume, price=price_close)
+        logger.info(f"{symbol} CLOSED Ticket #{pos.ticket} (Reversal)")
 
-    # Initialize Engine (Reused for logic, symbol updated per loop)
-    # We create one engine instance per symbol to keep state if needed
+
+# =============================================================================
+# MAIN BOT LOGIC
+# =============================================================================
+def run_live_bot():
+    logger.info("=" * 60)
+    logger.info("AntiGravity Bot v2.2 - WEALTH BUILDER")
+    logger.info(f"Mode: Personal Growth (Risk {RISK_PER_TRADE_PERCENT*100}%)")
+    logger.info(f"Portfolio: {[p['symbol'] for p in PORTFOLIO]}")
+    logger.info("=" * 60)
+
+    connector = MT5Connector()
+    if not connector.connect():
+        logger.error("Failed to connect!")
+        return
+
+    # Use config risk params (already updated for Personal mode)
+    risk_manager = RiskManager(config.RISK_PARAMS)
+    
     engines = {}
     for p in PORTFOLIO:
-        engines[p["symbol"]] = StrategyEngine(
-            symbol=p["symbol"], risk_manager=risk_manager
-        )
+        engines[p["symbol"]] = StrategyEngine(p["symbol"], risk_manager)
 
-    print("\n[LIVE BOT] System Active. Waiting for signals... (Press Ctrl+C to Stop)")
+    logger.info("System Active. Good luck!")
 
     try:
         while True:
+            # Emergency Stop
+            if len(mt5.positions_get() or []) > EMERGENCY_MAX_POSITIONS:
+                logger.critical("EMERGENCY MAX POSITIONS! HALTING.")
+                break
+            
             for asset in PORTFOLIO:
                 symbol = asset["symbol"]
                 mode = asset["mode"]
                 tf = asset["timeframe"]
                 strategy = engines[symbol]
 
-                # 2. Fetch Data
                 df = connector.fetch_candles(symbol, timeframe=tf, limit=300)
+                if df.empty: continue
 
-                if df.empty:
-                    print(f"   [WARNING] No data for {symbol}. Skipping...")
-                    continue
-
-                # 3. Calculate Indicators
                 full_data = strategy.add_indicators(df)
                 current_row = full_data.iloc[-1]
                 current_price = current_row["close"]
+                atr = current_row["atr"]
+                balance = connector.get_balance()
 
-                # 4. Check Current Positions
+                # Determine Position State
                 positions = mt5.positions_get(symbol=symbol)
-                current_volume = 0.0
-                if positions:
-                    current_volume = sum([p.volume for p in positions])
-                
-                # Get Balance for Risk Manager
-                current_balance = connector.get_balance()
+                has_long = any(p.type == mt5.ORDER_TYPE_BUY for p in positions) if positions else False
+                has_short = any(p.type == mt5.ORDER_TYPE_SELL for p in positions) if positions else False
 
-                # 5. Generate Signal
-                signal = strategy.generate_signal(
-                    current_price, current_row, current_balance, strategy_mode=mode
-                )
+                # Generate Signal
+                signal = strategy.generate_signal(current_price, current_row, balance, mode)
                 action = signal["action"]
-                trend = signal["trend"]
 
-                # Print Heartbeat
-                ts = pd.to_datetime(current_row.name).strftime("%H:%M")
-                # Only print interesting updates to avoid noise
-                # print(f"[{ts}] {symbol} | Price: {current_price:.2f} | Trend: {trend} | Action: {action}")
+                ts = datetime.now().strftime("%H:%M:%S")
 
-                # 6. Execute Trade Logic
+                # De-dupe signals
+                if action == last_signal.get(symbol) and action != "hold": continue
+                last_signal[symbol] = action
+
+                # === EXECUTION LOGIC ===
+                
+                # BUY (Long)
                 if action == "buy_signal":
-                    if current_volume == 0:
-                        # --- NEW: Position Limit Checks ---
-                        # Check total positions across all symbols
-                        all_positions = mt5.positions_get()
-                        total_positions = len(all_positions) if all_positions else 0
-                        
-                        if total_positions >= MAX_TOTAL_POSITIONS:
-                            print(f"[{ts}] {symbol} >>> BUY blocked: Max {MAX_TOTAL_POSITIONS} positions reached")
-                            continue
-                        
-                        # Check cooldown
-                        now = time.time()
-                        last_time = last_trade_time.get(symbol, 0)
-                        minutes_since = (now - last_time) / 60
-                        
-                        if minutes_since < COOLDOWN_MINUTES and last_time > 0:
-                            remaining = COOLDOWN_MINUTES - minutes_since
-                            print(f"[{ts}] {symbol} >>> BUY blocked: Cooldown {remaining:.0f}min remaining")
-                            continue
-                        
-                        # --- Execute Trade ---
-                        print(f"[{ts}] {symbol} >>> BUY SIGNAL! Executing...")
+                    if has_long: continue
+                    
+                    logger.info(f"[{ts}] {symbol} >>> LONG SIGNAL")
+                    if has_short: close_positions(connector, symbol, mt5.ORDER_TYPE_SELL)
+                    
+                    # Cooldown check
+                    now = time.time()
+                    if (now - last_trade_time.get(symbol, 0))/60 < COOLDOWN_MINUTES:
+                        logger.info(f"   Blocked: Cooldown")
+                        continue
 
-                        atr = current_row["atr"]
-                        volume = 0.01  # Fixed 0.01 for Demo Test
+                    # Dynamic Sizing (Risk 3%)
+                    sl_dist = atr * SL_ATR_MULT
+                    lot_size = calculate_lot_size(symbol, balance, RISK_PER_TRADE_PERCENT, sl_dist)
+                    
+                    sl = current_price - sl_dist
+                    tp = current_price + (atr * TP_ATR_MULT)
+                    
+                    res = connector.place_order(symbol, mt5.ORDER_TYPE_BUY, lot_size, sl=sl, tp=tp)
+                    if res: 
+                        logger.info(f"   SUCCESS LONG: {lot_size} lots")
+                        last_trade_time[symbol] = now
 
-                        # Stop Loss distance (wider for crypto?)
-                        sl_mult = 2.0
-                        if "BTC" in symbol or "ETH" in symbol:
-                            sl_mult = 3.0  # Looser SL for Crypto
-
-                        sl_price = current_price - (atr * sl_mult)
-
-                        res = connector.place_order(
-                            symbol, mt5.ORDER_TYPE_BUY, volume, sl=sl_price
-                        )
-                        if res:
-                            print(f"       >>> SUCCESS: Ticket {res.order}")
-                            last_trade_time[symbol] = time.time()  # Update cooldown
-
+                # SELL (Short)
                 elif action == "sell_signal":
-                    if current_volume > 0:
-                        print(f"[{ts}] {symbol} >>> SELL SIGNAL! Closing...")
-                        for pos in positions:
-                            type_close = (
-                                mt5.ORDER_TYPE_SELL
-                                if pos.type == mt5.ORDER_TYPE_BUY
-                                else mt5.ORDER_TYPE_BUY
-                            )
-                            close_price = (
-                                mt5.symbol_info_tick(symbol).bid
-                                if type_close == mt5.ORDER_TYPE_SELL
-                                else mt5.symbol_info_tick(symbol).ask
-                            )
-                            connector.place_order(
-                                symbol, type_close, pos.volume, price=close_price
-                            )
-                            print(f"       >>> CLOSED: Ticket {pos.ticket}")
+                    if has_short: continue
+                    
+                    logger.info(f"[{ts}] {symbol} >>> SHORT SIGNAL")
+                    if has_long: close_positions(connector, symbol, mt5.ORDER_TYPE_BUY)
+                    
+                    now = time.time()
+                    if (now - last_trade_time.get(symbol, 0))/60 < COOLDOWN_MINUTES:
+                         logger.info(f"   Blocked: Cooldown")
+                         continue
 
-            # End of Portfolio Loop
-            # Small sleep to yield CPU
+                    # Dynamic Sizing
+                    sl_dist = atr * SL_ATR_MULT
+                    lot_size = calculate_lot_size(symbol, balance, RISK_PER_TRADE_PERCENT, sl_dist)
+                    
+                    sl = current_price + sl_dist
+                    tp = current_price - (atr * TP_ATR_MULT)
+                    
+                    res = connector.place_order(symbol, mt5.ORDER_TYPE_SELL, lot_size, sl=sl, tp=tp)
+                    if res:
+                        logger.info(f"   SUCCESS SHORT: {lot_size} lots")
+                        last_trade_time[symbol] = now
+            
             time.sleep(CHECK_INTERVAL_SEC)
 
     except KeyboardInterrupt:
-        print("\n[LIVE BOT] Stopping...")
+        logger.info("Stopped.")
+    finally:
         connector.shutdown()
-    except Exception as e:
-        print(f"\n[LIVE BOT] CRITICAL ERROR: {e}")
-        connector.shutdown()
-
 
 if __name__ == "__main__":
     run_live_bot()

@@ -257,22 +257,35 @@ class StrategyEngine:
         signal = {"action": "hold", "trend": self.current_trend}
 
         # Core Logic
-        # 1. Uptrend Filter: Price MUST be above EMA 50 (Macro Trend)
+        # 1. Macro Trend Filter (EMA 200)
         is_uptrend_macro = current_price > ema_200
+        is_downtrend_macro = current_price < ema_200
 
-        # 2. Entry Trigger: EMA 9 is above EMA 21
+        # 2. RSI Momentum Filter (50 < RSI < 80 for Long, 20 < RSI < 50 for Short)
+        # Using wider bands for crypto/gold volatility
+        is_momentum_long = 45 < rsi < 80
+        is_momentum_short = 20 < rsi < 55
+
+        # 3. Entry Triggers (EMA Crossover)
+        # EMA 18 > EMA 35 = Bullish Momentum
         is_bullish_cross = ema_18 > ema_35
+        # EMA 18 < EMA 35 = Bearish Momentum
+        is_bearish_cross = ema_18 < ema_35
+
+        # --- LONG SIGNAL ---
+        if is_uptrend_macro and is_bullish_cross and is_momentum_long:
+            signal["action"] = "buy_signal"
+            signal["trend"] = "bullish"
+
+        # --- SHORT SIGNAL ---
+        elif is_downtrend_macro and is_bearish_cross and is_momentum_short:
+             signal["action"] = "sell_signal"
+             signal["trend"] = "bearish"
+
+        # --- EXIT SIGNALS (Reversal) ---
+        # If we are in opposite cross, we might want to exit even if not full reversal
+        # For simple reversing strategy, the opposite signal acts as exit.
         
-        # 3. RSI Momentum Filter (New)
-        # Buy only if RSI > 50 (Momentum is Bullish) but < 70 (Not Overbought)
-        is_momentum_good = 50 < rsi < 80
-
-        if is_uptrend_macro and is_bullish_cross and is_momentum_good:
-            signal["action"] = "buy_signal"  # Signal to enter Long
-
-        elif ema_18 < ema_35:
-            signal["action"] = "sell_signal"  # Signal to Exit Long
-
         return signal
 
     def run_paper_trading(self):

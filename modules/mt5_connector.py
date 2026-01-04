@@ -57,6 +57,13 @@ class MT5Connector:
             self.connect()
         return mt5.account_info()
 
+    def get_balance(self):
+        """
+        Helper to get account balance directly.
+        """
+        info = self.get_account_info()
+        return info.balance if info else 0.0
+
     def close_position(self, position_ticket, symbol=None, volume=None, order_type=None):
         """
         Universal Close Function (Supports Hedging & Netting).

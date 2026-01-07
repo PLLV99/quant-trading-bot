@@ -42,8 +42,8 @@ COOLDOWN_MINUTES = 30        # Aggressive: 30 min cooldown (was 60)
 CHECK_INTERVAL_SEC = 60      # Check every minute
 EMERGENCY_MAX_POSITIONS = 6  # Halt if exceeded
 
-# --- RISK/REWARD ---
-RISK_PER_TRADE_PERCENT = 0.03 # Risk 3% of Balance per trade
+# --- RISK/REWARD (Rich Mode) ---
+RISK_PER_TRADE_PERCENT = 0.02 # Risk 2% (Optimal Growth)
 SL_ATR_MULT = 2.5             # Stop Loss = 2.5x ATR
 TP_ATR_MULT = 5.0             # Take Profit = 5x ATR (1:2 RR)
 

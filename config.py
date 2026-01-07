@@ -17,22 +17,22 @@ STRATEGY_PARAMS = {
 
 # Global Risk Parameters (The Fortress) - FREEDOM EDITION
 RISK_PARAMS = {
-    # --- Capital Growth Mode ---
+    # --- Capital Growth Mode (Rich Strategy) ---
     'ftmo_mode': False,              # DISABLE FTMO RULES
     
-    # --- Safety Nets (Loose) ---
-    'max_drawdown_limit': 0.30,      # 30% Max Drawdown (Aggressive Growth)
-    'stop_loss_atr_multiplier': 2.5, # Tighter Stops
+    # --- Safety Nets ---
+    'max_drawdown_limit': 0.15,      # 15% Max DD (User Spec: 15% + Halt)
+    'stop_loss_atr_multiplier': 2.5, 
     
     # --- Position Sizing ---
-    'risk_per_trade_pct': 0.03,      # Risk 3% per trade (Aggressive Compounding)
-    'max_leverage_use': 100,         # Use up to 1:100 leverage
+    'risk_per_trade_pct': 0.02,      # Risk 2% per trade (Optimal Growth)
+    'max_leverage_use': 100,         
     
     # --- Advanced Features ---
-    'martingale_detection_enabled': True,   # Prevention
-    'floating_loss_limit_pct': 0.10,        # 10% Floating Loss Limit
-    'losing_streak_threshold': 4,           # 4 losses -> Reduce size
-    'volatility_scaling_enabled': True,     # Adapt to market chaos
+    'martingale_detection_enabled': True,   
+    'floating_loss_limit_pct': 0.15,        # Adjusted to match Max DD
+    'losing_streak_threshold': 4,           
+    'volatility_scaling_enabled': True,     
 }
 
 # Portfolio Config (Backtesting only - Live uses run_mt5_live.py)

@@ -19,7 +19,7 @@ STRATEGY_PARAMS = {
 RISK_PARAMS = {
     # --- Capital Growth Mode (Rich Strategy) ---
     'ftmo_mode': True,               # ENABLED to use Daily Filters
-    'daily_loss_limit_pct': 0.05,    # 5% Daily Stop Loss (Rich Mode)
+    'daily_loss_limit_pct': 0.07,    # 7% Daily Stop Loss (User Request)
     'daily_profit_target_pct': 0.50, # 50% Daily Target (Effectively "No Cap" - Let it run)
     'max_holding_hours': 9999,       # Disable Time Limit (Swing Trade allowed)
     'max_drawdown_ftmo_pct': 0.15,   # Match Global Max DD

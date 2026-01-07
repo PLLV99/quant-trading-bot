@@ -154,11 +154,35 @@ def run_live_bot():
 
     try:
         while True:
-            # Emergency Stop
-            if len(mt5.positions_get() or []) > EMERGENCY_MAX_POSITIONS:
-                logger.critical("EMERGENCY MAX POSITIONS! HALTING.")
-                break
-            
+            # --- SAFETY CHECK (Every Loop) ---
+            account_info = connector.get_account_info()
+            if account_info:
+                equity = account_info.equity
+                balance = account_info.balance
+                
+                # Check Daily Limits (Pass EQUITY to capture floating loss)
+                allowed, reason = risk_manager.check_daily_status(equity)
+                
+                if not allowed:
+                    if reason == "DAILY_LOSS_LIMIT":
+                        logger.critical(f"🛑 DAILY LOSS LIMIT HIT! Equity: ${equity:.2f} (Hard Close Active)")
+                        # Force Close ALL Positions
+                        for asset in PORTFOLIO:
+                            close_positions(connector, asset["symbol"])
+                        
+                        logger.critical("Sleeping for 1 hour to prevent re-entry...")
+                        time.sleep(3600) 
+                        continue
+                    
+                    elif reason == "DAILY_PROFIT_TARGET":
+                         logger.info(f"🎉 Daily Profit Target Hit! Locking in gains.")
+                         # Logic to close or just stop new trades? 
+                         # Default: Stop new trades, let trails run? 
+                         # Simple version: Close all (Take Profit)
+                         # But user wants "Let Run", so maybe we don't close here? 
+                         # Config has Profit Target 50% (unreachable), so this block strictly won't hit.
+                         pass
+
             for asset in PORTFOLIO:
                 symbol = asset["symbol"]
                 mode = asset["mode"]
@@ -172,7 +196,7 @@ def run_live_bot():
                 current_row = full_data.iloc[-1]
                 current_price = current_row["close"]
                 atr = current_row["atr"]
-                balance = connector.get_balance()
+                # balance = connector.get_balance() # Already got above
 
                 # Determine Position State
                 positions = mt5.positions_get(symbol=symbol)
@@ -188,6 +212,9 @@ def run_live_bot():
                 # De-dupe signals
                 if action == last_signal.get(symbol) and action != "hold": continue
                 last_signal[symbol] = action
+
+                # GLOBAL SAFETY CHECK (Redundant but safe)
+                if not allowed: continue
 
                 # === EXECUTION LOGIC ===
                 

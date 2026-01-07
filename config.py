@@ -18,7 +18,11 @@ STRATEGY_PARAMS = {
 # Global Risk Parameters (The Fortress) - FREEDOM EDITION
 RISK_PARAMS = {
     # --- Capital Growth Mode (Rich Strategy) ---
-    'ftmo_mode': False,              # DISABLE FTMO RULES
+    'ftmo_mode': True,               # ENABLED to use Daily Filters
+    'daily_loss_limit_pct': 0.05,    # 5% Daily Stop Loss (Rich Mode)
+    'daily_profit_target_pct': 0.50, # 50% Daily Target (Effectively "No Cap" - Let it run)
+    'max_holding_hours': 9999,       # Disable Time Limit (Swing Trade allowed)
+    'max_drawdown_ftmo_pct': 0.15,   # Match Global Max DD
     
     # --- Safety Nets ---
     'max_drawdown_limit': 0.15,      # 15% Max DD (User Spec: 15% + Halt)

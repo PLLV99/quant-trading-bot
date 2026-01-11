@@ -9,3 +9,7 @@ env/
 .git/
 .vscode/
 deployment.zip
+# Trade Reports (Contains Account Info)
+*.html
+*.xlsx
+archive/

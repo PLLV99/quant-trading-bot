@@ -111,6 +111,9 @@ class StrategyEngine:
         """
         Generates Grid Levels that 'breathe' with volatility.
         Formula: Step Size = Base Step * (Current ATR / Reference ATR)
+        
+        BETA ENGINE UPDATE:
+        - For Gold (XAU), we use wider steps (1.5% - 2.0%) to capture Alpha moves and avoid Chop.
         """
         if base_atr is None:
             base_atr = (
@@ -122,8 +125,18 @@ class StrategyEngine:
         # If Vol is low, grid tightens (to scalp).
         vol_factor = max(0.5, current_atr / base_atr)
 
-        dynamic_step = (current_price * self.config["base_grid_step_pct"]) * vol_factor
+        # BETA ENGINE: Widen grid for Gold to avoid chop
+        base_step_pct = self.config["base_grid_step_pct"]
+        if "XAU" in self.symbol:
+            base_step_pct = 0.015  # 1.5% Base Step for Gold (was 1%)
+            vol_factor = max(1.0, vol_factor) # Don't shrink below 1.0 for Gold
 
+        dynamic_step = (current_price * base_step_pct) * vol_factor
+        
+        # Anti-Chop Check: Ensure step is significantly larger than spread (e.g. 5x)
+        # Assuming avg spread ~30-50 pts. Step should be > 200 pts.
+        # dynamic_step is price delta. verify it > min_dist
+        
         lower_limit = current_price * 0.90  # +/- 10% range for demo
         upper_limit = current_price * 1.10
 

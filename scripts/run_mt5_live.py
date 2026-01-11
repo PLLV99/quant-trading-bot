@@ -30,7 +30,7 @@ from modules.risk_manager import RiskManager
 # CONFIGURATION
 # =============================================================================
 PORTFOLIO = [
-    {"symbol": "XAUUSDm", "mode": "gold_ha", "timeframe": mt5.TIMEFRAME_M15},
+    {"symbol": "XAUUSDm", "mode": "gold_ha", "timeframe": mt5.TIMEFRAME_H1}, # BETA ENGINE: H1 for Gold
     {"symbol": "BTCUSDm", "mode": "gold_ha", "timeframe": mt5.TIMEFRAME_M15},
     {"symbol": "USOILm", "mode": "gold_ha", "timeframe": mt5.TIMEFRAME_M15},
 ]
@@ -38,7 +38,7 @@ PORTFOLIO = [
 # --- PERSONAL GROWTH SAFETY ---
 MAX_TOTAL_POSITIONS = 3      # Max 3 positions
 MAX_PER_SYMBOL = 1           # Max 1 position per symbol
-COOLDOWN_MINUTES = 30        # Aggressive: 30 min cooldown (was 60)
+COOLDOWN_MINUTES = 60        # BETA ENGINE: 60 min cooldown (was 30) for Anti-Chop
 CHECK_INTERVAL_SEC = 60      # Check every minute
 EMERGENCY_MAX_POSITIONS = 6  # Halt if exceeded
 

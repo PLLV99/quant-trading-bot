@@ -3,21 +3,33 @@ from bs4 import BeautifulSoup
 import sys
 import os
 
-# Path to report
-REPORT_PATH = "ReportHistory-415089870.html"
+import glob
+import os
+
+def get_latest_report():
+    # Find all html/xlsx files with "Report" in name
+    files = glob.glob("*Report*.html") + glob.glob("*Report*.xlsx")
+    if not files:
+        return None
+    # Return newest file
+    return max(files, key=os.path.getctime)
+
+REQUIRED_COLUMNS = ['Time', 'Symbol', 'Profit'] # Minimum needed
 
 def analyze_report():
-    if not os.path.exists(REPORT_PATH):
-        print(f"File not found: {REPORT_PATH}")
+    report_path = get_latest_report()
+    
+    if not report_path:
+        print("❌ No Report File found! (Please save report as HTML from MT5)")
         return
 
-    print(f"Reading {REPORT_PATH}...")
+    print(f"📄 Analyzing Latest Report: {report_path}...")
     
     # Try reading as HTML table
     try:
         # Note: MT5 HTML reports are often just tables. 
         # We might need to handle encoding.
-        with open(REPORT_PATH, 'r', encoding='utf-16') as f:
+        with open(report_path, 'r', encoding='utf-16') as f:
             content = f.read()
         
         soup = BeautifulSoup(content, 'html.parser')

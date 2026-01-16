@@ -13,7 +13,13 @@ class Backtester:
     - 0.1% Fee per trade
     """
 
-    def __init__(self, strategy_engine, initial_balance=10000.0, verbose=True, strategy_mode='grid'):
+    def __init__(
+        self,
+        strategy_engine,
+        initial_balance=10000.0,
+        verbose=True,
+        strategy_mode="grid",
+    ):
         self.strategy = strategy_engine
         self.initial_balance = initial_balance
         self.verbose = verbose
@@ -38,7 +44,7 @@ class Backtester:
 
         # Pre-calculate indicators
         data = self._prepare_indicators(data)
-        
+
         last_date = None
 
         for index, row in data.iterrows():
@@ -46,89 +52,104 @@ class Backtester:
             high = row["high"]
             low = row["low"]
             timestamp = index
-            
+
             # --- FTMO Day Reset Logic ---
             current_date = timestamp.date()
             if last_date is None or current_date != last_date:
                 # New Day Detected (00:00 equivalent)
                 # We use the OPENING equity of the day as the separate locked baseline for calculations
                 # But here, we just use current balance as approximation or let RiskManager handle it
-                self.strategy.risk_manager.reset_daily_stats(self.balance + (self.inventory * current_price))
+                self.strategy.risk_manager.reset_daily_stats(
+                    self.balance + (self.inventory * current_price)
+                )
                 last_date = current_date
-            
+
             # 1. Update Portfolio Value (Mark-to-Market)
             portfolio_value = self.balance + (self.inventory * current_price)
 
             # Update Risk Manager with current equity (for Drawdown tracking)
             self.strategy.risk_manager.update_account_status(portfolio_value)
-            
+
             # --- Check FTMO Daily Limits ---
-            is_allowed, reason = self.strategy.risk_manager.check_daily_status(portfolio_value)
-            
+            is_allowed, reason = self.strategy.risk_manager.check_daily_status(
+                portfolio_value
+            )
+
             self.equity_curve.append(
                 {"time": timestamp, "equity": portfolio_value, "price": current_price}
             )
-            
+
             if not is_allowed:
-                # Trading Halted for the day. Close positions? 
-                # FTMO Rule: "You don't HAVE to close, but you can't open new ones." 
-                # Actually, if Daily Loss Hit, usually you just stop. 
+                # Trading Halted for the day. Close positions?
+                # FTMO Rule: "You don't HAVE to close, but you can't open new ones."
+                # Actually, if Daily Loss Hit, usually you just stop.
                 # But if "Hard Stop" is enabled (in our config), we might want to force close.
                 # For now, we just SKIP generating new signals (Freeze).
                 # To be safer, we should clear active orders.
-                self.active_orders = [] 
-                continue 
+                self.active_orders = []
+                continue
 
             # 2. Check Order Fills (Engine)
             self._check_fills(high, low, timestamp)
 
             # 3. Generate Strategy Signals
             market_slice = row
-            signal = self.strategy.generate_signal(current_price, market_slice, current_balance=portfolio_value, strategy_mode=self.strategy_mode)
+            signal = self.strategy.generate_signal(
+                current_price,
+                market_slice,
+                current_balance=portfolio_value,
+                strategy_mode=self.strategy_mode,
+            )
 
             # 4. Process Signal
-            if self.strategy_mode == 'gold_ha':
+            if self.strategy_mode == "gold_ha":
                 # Heikin Ashi Strategy: Buy/Sell signals (not grid)
                 action = signal.get("action")
-                
+
                 if action == "buy_signal" and self.inventory == 0:
                     # Enter long position
-                    size = self._calculate_position_size(current_price, row.get("atr", current_price * 0.02))
+                    size = self._calculate_position_size(
+                        current_price, row.get("atr", current_price * 0.02)
+                    )
                     cost = current_price * size
                     if self.balance >= cost:
                         self.balance -= cost
                         self.inventory += size
                         fee = cost * self.fee_rate
                         self.balance -= fee
-                        
-                        self.trade_history.append({
-                            "time": timestamp,
-                            "side": "buy",
-                            "price": current_price,
-                            "size": size,
-                            "fee": fee,
-                            "cost": cost,
-                        })
+
+                        self.trade_history.append(
+                            {
+                                "time": timestamp,
+                                "side": "buy",
+                                "price": current_price,
+                                "size": size,
+                                "fee": fee,
+                                "cost": cost,
+                            }
+                        )
                         self.strategy.last_trade_time = timestamp
-                
+
                 elif action == "sell_signal" and self.inventory > 0:
                     # Exit long position
                     revenue = current_price * self.inventory
                     self.balance += revenue
                     fee = revenue * self.fee_rate
                     self.balance -= fee
-                    
-                    self.trade_history.append({
-                        "time": timestamp,
-                        "side": "sell",
-                        "price": current_price,
-                        "size": self.inventory,
-                        "fee": fee,
-                        "revenue": revenue,
-                    })
+
+                    self.trade_history.append(
+                        {
+                            "time": timestamp,
+                            "side": "sell",
+                            "price": current_price,
+                            "size": self.inventory,
+                            "fee": fee,
+                            "revenue": revenue,
+                        }
+                    )
                     self.inventory = 0.0
                     self.strategy.last_trade_time = timestamp
-                    
+
             elif signal.get("action") == "update_grid":
                 # Original Grid Strategy
                 self.active_orders = []
@@ -154,23 +175,24 @@ class Backtester:
     def _calculate_position_size(self, current_price, atr):
         """
         Calculate position size for Heikin Ashi strategy.
-        Uses 2% risk per trade similar to main risk manager.
+        Uses config risk_per_trade_pct (default 4% for growth target).
         """
-        base_risk_pct = 0.02  # 2% of balance
+        import config
+
+        base_risk_pct = config.RISK_PARAMS.get("risk_per_trade_pct", 0.02)
         dollar_risk = self.balance * base_risk_pct
-        
+
         # Risk per share = 3x ATR (stop loss distance)
         stop_distance = atr * 3.0
-        
+
         if stop_distance > 0:
             position_size = dollar_risk / stop_distance
             # Cap at 10% of balance to avoid over-leverage
             max_position_value = self.balance * 0.1
             max_size = max_position_value / current_price
             return min(position_size, max_size)
-        
-        return 0.0
 
+        return 0.0
 
     def _prepare_indicators(self, data):
         return self.strategy.add_indicators(data)

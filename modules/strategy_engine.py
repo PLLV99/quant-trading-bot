@@ -322,10 +322,14 @@ class StrategyEngine:
         is_uptrend_macro = current_price > ema_200
         is_downtrend_macro = current_price < ema_200
 
-        # 2. RSI Momentum Filter (50 < RSI < 80 for Long, 20 < RSI < 50 for Short)
-        # Using wider bands for crypto/gold volatility
-        is_momentum_long = 45 < rsi < 80
-        is_momentum_short = 20 < rsi < 55
+        # 2. RSI Momentum Filter (Using config values)
+        # Loosened to allow more trades for higher profit target
+        import config
+
+        rsi_ob = config.STRATEGY_PARAMS.get("rsi_overbought", 80)
+        rsi_os = config.STRATEGY_PARAMS.get("rsi_oversold", 20)
+        is_momentum_long = rsi_os < rsi < rsi_ob  # Allow wider range
+        is_momentum_short = rsi_os < rsi < rsi_ob
 
         # 3. Entry Triggers (EMA Crossover)
         # EMA 18 > EMA 35 = Bullish Momentum

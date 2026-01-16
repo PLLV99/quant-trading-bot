@@ -284,14 +284,14 @@ class RiskManager:
         if len(self.lot_history) > 5:
             self.lot_history.pop(0)  # Keep last 5 trades only
 
-        # TIGHTENED: Check for 2+ consecutive increases (was 3)
-        if len(self.lot_history) >= 2:
-            last_2 = self.lot_history[-2:]
-            # If current lot is larger than previous = dangerous pattern starting
-            if last_2[0] < last_2[1]:
+        # Check for 3+ consecutive increases (balanced risk/reward)
+        if len(self.lot_history) >= 3:
+            last_3 = self.lot_history[-3:]
+            # All 3 are different and each is larger than previous
+            if last_3[0] < last_3[1] < last_3[2]:
                 if not self.martingale_detected:
                     print(
-                        f"[RISK ALERT] ⚠️ MARTINGALE PATTERN DETECTED: {[round(x, 4) for x in last_2]}"
+                        f"[RISK ALERT] ⚠️ MARTINGALE PATTERN DETECTED: {[round(x, 4) for x in last_3]}"
                     )
                     print(f"[RISK ALERT] Resetting lot history to prevent blowup.")
                 self.martingale_detected = True

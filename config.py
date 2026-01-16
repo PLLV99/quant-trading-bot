@@ -8,8 +8,8 @@ STRATEGY_PARAMS = {
     "take_profit_percent": 0.005,  # 0.5% TP per grid level
     "ema_period": 200,  # Trend Filter
     "rsi_period": 14,  # Momentum
-    "rsi_overbought": 70,  # Don't Buy above this
-    "rsi_oversold": 30,  # Don't Sell below this
+    "rsi_overbought": 80,  # Loosened from 70 (more trades)
+    "rsi_oversold": 20,  # Loosened from 30 (more trades)
     "cooldown_minutes": 60,  # Anti-Overtrading (1 Hour)
     "max_active_grids": 5,  # Limit
     "min_atr_period": 14,  # Volatility Window
@@ -26,8 +26,8 @@ RISK_PARAMS = {
     # --- Safety Nets ---
     "max_drawdown_limit": 0.15,  # 15% Max DD (User Spec: 15% + Halt)
     "stop_loss_atr_multiplier": 2.5,
-    # --- Position Sizing ---
-    "risk_per_trade_pct": 0.02,  # Risk 2% per trade (Optimal Growth)
+    # --- Position Sizing (BALANCED: ~10-15% monthly target) ---
+    "risk_per_trade_pct": 0.03,  # Risk 3% per trade (balanced)
     "max_leverage_use": 100,
     # --- Advanced Features ---
     "martingale_detection_enabled": True,

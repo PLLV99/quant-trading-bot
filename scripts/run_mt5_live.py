@@ -34,13 +34,18 @@ PORTFOLIO = [
         "symbol": "XAUUSDm",
         "mode": "gold_ha",
         "timeframe": mt5.TIMEFRAME_H1,
-    },  # BETA ENGINE: H1 for Gold
+    },  # Gold - Best performer
+    {
+        "symbol": "XAGUSDm",
+        "mode": "gold_ha",
+        "timeframe": mt5.TIMEFRAME_H1,
+    },  # Silver - NEW
     {
         "symbol": "BTCUSDm",
         "mode": "gold_ha",
         "timeframe": mt5.TIMEFRAME_H1,
-    },  # BETA ENGINE: H1 for BTC (Fix Overtrading)
-    {"symbol": "USOILm", "mode": "gold_ha", "timeframe": mt5.TIMEFRAME_M15},
+    },  # Bitcoin
+    {"symbol": "USOILm", "mode": "gold_ha", "timeframe": mt5.TIMEFRAME_M15},  # Oil
 ]
 
 # --- PERSONAL GROWTH SAFETY ---
@@ -51,7 +56,7 @@ CHECK_INTERVAL_SEC = 60  # Check every minute
 EMERGENCY_MAX_POSITIONS = 6  # Halt if exceeded
 
 # --- RISK/REWARD (Rich Mode) ---
-RISK_PER_TRADE_PERCENT = 0.02  # Risk 2% (Optimal Growth)
+RISK_PER_TRADE_PERCENT = 0.03  # Risk 3% (Balanced Growth)
 SL_ATR_MULT = 2.5  # Stop Loss = 2.5x ATR
 TP_ATR_MULT = 5.0  # Take Profit = 5x ATR (1:2 RR)
 

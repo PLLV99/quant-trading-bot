@@ -80,6 +80,19 @@ class StrategyEngine:
         rs = gain / loss
         price_history["rsi"] = 100 - (100 / (1 + rs))
 
+        # Calculate Bollinger Bands (NEW: for Squeeze Filter)
+        bb_period = 20
+        bb_std = 2.0
+        price_history["bb_middle"] = price_history["close"].rolling(bb_period).mean()
+        bb_std_dev = price_history["close"].rolling(bb_period).std()
+        price_history["bb_upper"] = price_history["bb_middle"] + (bb_std * bb_std_dev)
+        price_history["bb_lower"] = price_history["bb_middle"] - (bb_std * bb_std_dev)
+        # BB Width = (Upper - Lower) / Middle * 100 (percentage)
+        price_history["bb_width"] = (
+            (price_history["bb_upper"] - price_history["bb_lower"])
+            / price_history["bb_middle"]
+        ) * 100
+
         # Calculate Heikin Ashi
         price_history = self._calculate_heikin_ashi(price_history)
 

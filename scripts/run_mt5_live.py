@@ -41,7 +41,11 @@ PORTFOLIO = [
         "mode": "gold_ha",
         "timeframe": mt5.TIMEFRAME_H1,
     },  # Bitcoin
-    {"symbol": "USOILm", "mode": "gold_ha", "timeframe": mt5.TIMEFRAME_M15},  # Oil
+    {
+        "symbol": "USOILm",
+        "mode": "gold_ha",
+        "timeframe": mt5.TIMEFRAME_H1,
+    },  # Oil H1 (was M15)
 ]
 
 # --- PERSONAL GROWTH SAFETY ---
@@ -54,7 +58,7 @@ CHECK_INTERVAL_SEC = 60  # Check every minute
 EMERGENCY_MAX_POSITIONS = 6  # Halt if exceeded
 
 # --- RISK/REWARD (Rich Mode) ---
-RISK_PER_TRADE_PERCENT = 0.03  # Risk 3% (Balanced Growth)
+RISK_PER_TRADE_PERCENT = 0.02  # Risk 2% (Optimized from backtest)
 SL_ATR_MULT = 2.5  # Stop Loss = 2.5x ATR
 TP_ATR_MULT = 5.0  # Take Profit = 5x ATR (1:2 RR)
 

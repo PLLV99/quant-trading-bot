@@ -35,11 +35,7 @@ PORTFOLIO = [
         "mode": "gold_ha",
         "timeframe": mt5.TIMEFRAME_H1,
     },  # Gold - Best performer
-    {
-        "symbol": "XAGUSDm",
-        "mode": "gold_ha",
-        "timeframe": mt5.TIMEFRAME_H1,
-    },  # Silver - NEW
+    # Silver REMOVED - Contract size too large for small accounts
     {
         "symbol": "BTCUSDm",
         "mode": "gold_ha",
@@ -51,7 +47,9 @@ PORTFOLIO = [
 # --- PERSONAL GROWTH SAFETY ---
 MAX_TOTAL_POSITIONS = 3  # Max 3 positions
 MAX_PER_SYMBOL = 1  # Max 1 position per symbol
-COOLDOWN_MINUTES = 60  # BETA ENGINE: 60 min cooldown (was 30) for Anti-Chop
+COOLDOWN_MINUTES = (
+    120  # FIXED: 120 min cooldown (was 60) - Prevent Machine Gun after Cut Loss
+)
 CHECK_INTERVAL_SEC = 60  # Check every minute
 EMERGENCY_MAX_POSITIONS = 6  # Halt if exceeded
 

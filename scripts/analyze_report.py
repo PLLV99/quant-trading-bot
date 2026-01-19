@@ -184,15 +184,21 @@ def calc_max_drawdown(cumulative_pnl):
 def analyze(df, initial_balance=300.0):
     """Full Quant Analysis - All Metrics"""
 
-    print("=" * 70)
-    print("📊 UNIFIED TRADE REPORT ANALYSIS - AntiGravity Bot")
-    print("=" * 70)
-    print(f'Time: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}')
-    print(f"Balance: ${initial_balance:.2f}")
-    print()
+    output_lines = []
+
+    def log(msg=""):
+        print(msg)
+        output_lines.append(str(msg))
+
+    log("=" * 70)
+    log("📊 UNIFIED TRADE REPORT ANALYSIS - AntiGravity Bot")
+    log("=" * 70)
+    log(f'Time: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}')
+    log(f"Balance: ${initial_balance:.2f}")
+    log()
 
     if df is None or len(df) == 0:
-        print("❌ No trades found!")
+        log("❌ No trades found!")
         return None
 
     total = len(df)
@@ -201,12 +207,12 @@ def analyze(df, initial_balance=300.0):
     win_rate = len(winners) / total * 100
 
     # === BASIC STATS ===
-    print("📈 TRADE STATISTICS")
-    print("-" * 50)
-    print(f"Total Trades:    {total}")
-    print(f"Winners:         {len(winners)} ({win_rate:.1f}%)")
-    print(f"Losers:          {len(losers)} ({100-win_rate:.1f}%)")
-    print()
+    log("📈 TRADE STATISTICS")
+    log("-" * 50)
+    log(f"Total Trades:    {total}")
+    log(f"Winners:         {len(winners)} ({win_rate:.1f}%)")
+    log(f"Losers:          {len(losers)} ({100-win_rate:.1f}%)")
+    log()
 
     # === P&L ===
     total_pnl = df["Profit"].sum()
@@ -215,14 +221,14 @@ def analyze(df, initial_balance=300.0):
     avg_win = winners["Profit"].mean() if len(winners) > 0 else 0
     avg_loss = losers["Profit"].mean() if len(losers) > 0 else 0
 
-    print("💰 P&L")
-    print("-" * 50)
-    print(f"Total P&L:       ${total_pnl:.2f} ({total_pnl/initial_balance*100:.1f}%)")
-    print(f"Gross Profit:    ${gross_profit:.2f}")
-    print(f"Gross Loss:      ${gross_loss:.2f}")
-    print(f"Avg Win:         ${avg_win:.2f}")
-    print(f"Avg Loss:        ${avg_loss:.2f}")
-    print()
+    log("💰 P&L")
+    log("-" * 50)
+    log(f"Total P&L:       ${total_pnl:.2f} ({total_pnl/initial_balance*100:.1f}%)")
+    log(f"Gross Profit:    ${gross_profit:.2f}")
+    log(f"Gross Loss:      ${gross_loss:.2f}")
+    log(f"Avg Win:         ${avg_win:.2f}")
+    log(f"Avg Loss:        ${avg_loss:.2f}")
+    log()
 
     # === QUANT METRICS ===
     pf = abs(gross_profit / gross_loss) if gross_loss != 0 else float("inf")
@@ -242,31 +248,31 @@ def analyze(df, initial_balance=300.0):
     skew = df["Profit"].skew()
     kurt = df["Profit"].kurtosis()
 
-    print("📐 QUANT METRICS")
-    print("-" * 50)
-    print(f'Profit Factor:   {pf:.2f} {"✅" if pf > 1.5 else "⚠️"}')
-    print(f"R:R Ratio:       1:{rr:.2f}")
-    print(f"Expectancy:      ${expectancy:.2f}/trade")
-    print(f'Sharpe Ratio:    {sharpe:.2f} {"✅" if sharpe > 1 else "⚠️"}')
-    print(f"Sortino Ratio:   {sortino:.2f}")
-    print(f"Max Drawdown:    ${max_dd:.2f} ({max_dd_pct:.1f}%)")
-    print(f"Recovery Factor: {recovery:.2f}")
-    print(f'Skew:            {skew:.2f} {"⚠️ Blow-up Risk" if skew < -1 else ""}')
-    print(f'Kurtosis:        {kurt:.2f} {"⚠️ Fat Tails" if kurt > 3 else ""}')
-    print()
+    log("📐 QUANT METRICS")
+    log("-" * 50)
+    log(f'Profit Factor:   {pf:.2f} {"✅" if pf > 1.5 else "⚠️"}')
+    log(f"R:R Ratio:       1:{rr:.2f}")
+    log(f"Expectancy:      ${expectancy:.2f}/trade")
+    log(f'Sharpe Ratio:    {sharpe:.2f} {"✅" if sharpe > 1 else "⚠️"}')
+    log(f"Sortino Ratio:   {sortino:.2f}")
+    log(f"Max Drawdown:    ${max_dd:.2f} ({max_dd_pct:.1f}%)")
+    log(f"Recovery Factor: {recovery:.2f}")
+    log(f'Skew:            {skew:.2f} {"⚠️ Blow-up Risk" if skew < -1 else ""}')
+    log(f'Kurtosis:        {kurt:.2f} {"⚠️ Fat Tails" if kurt > 3 else ""}')
+    log()
 
     # === BY SYMBOL ===
-    print("🎯 BY SYMBOL")
-    print("-" * 50)
+    log("🎯 BY SYMBOL")
+    log("-" * 50)
     for sym in df["Symbol"].unique():
         s = df[df["Symbol"] == sym]
         s_pnl = s["Profit"].sum()
         s_wr = len(s[s["Profit"] > 0]) / len(s) * 100
         status = "✅" if s_pnl > 0 else "❌"
-        print(
+        log(
             f"{sym:12} | {len(s):3} trades | WR: {s_wr:5.1f}% | P&L: ${s_pnl:8.2f} {status}"
         )
-    print()
+    log()
 
     # === CONSECUTIVE STREAKS ===
     loss_streak = win_streak = max_loss = max_win = 0
@@ -287,31 +293,31 @@ def analyze(df, initial_balance=300.0):
         df["TimeDiff"] = df["OpenTime"].diff().dt.total_seconds()
         rapid_fire = len(df[df["TimeDiff"] < 60])
 
-    print("⚠️  RISK FLAGS")
-    print("-" * 50)
-    print(f'Max Consecutive Losses:  {max_loss} {"🔴" if max_loss > 5 else ""}')
-    print(f"Max Consecutive Wins:    {max_win}")
-    print(
+    log("⚠️  RISK FLAGS")
+    log("-" * 50)
+    log(f'Max Consecutive Losses:  {max_loss} {"🔴" if max_loss > 5 else ""}')
+    log(f"Max Consecutive Wins:    {max_win}")
+    log(
         f'Rapid Fire Trades (<60s): {rapid_fire} {"🔴 Machine Gun!" if rapid_fire > 5 else ""}'
     )
-    print()
+    log()
 
     # === FTMO CHECK ===
     daily_limit = initial_balance * 0.05
     max_dd_limit = initial_balance * 0.10
 
-    print("✅ FTMO COMPLIANCE")
-    print("-" * 50)
-    print(
+    log("✅ FTMO COMPLIANCE")
+    log("-" * 50)
+    log(
         f'Daily Loss (5%):  ${daily_limit:.2f} - {"✅ PASS" if abs(max_dd) < daily_limit else "❌ FAIL"}'
     )
-    print(
+    log(
         f'Max DD (10%):     ${max_dd_limit:.2f} - {"✅ PASS" if abs(max_dd) < max_dd_limit else "❌ FAIL"}'
     )
-    print()
+    log()
 
     # === VERDICT ===
-    print("=" * 70)
+    log("=" * 70)
     grade = "A"
     if pf < 1.0:
         grade = "F"
@@ -324,9 +330,13 @@ def analyze(df, initial_balance=300.0):
     if sharpe > 1.5 and pf > 2.0:
         grade = "A+"
 
-    print(f"🏆 GRADE: {grade}")
-    print(f"   Return: {total_pnl/initial_balance*100:.1f}%")
-    print("=" * 70)
+    log(f"🏆 GRADE: {grade}")
+    log(f"   Return: {total_pnl/initial_balance*100:.1f}%")
+    log("=" * 70)
+
+    # WRITE TO FILE
+    with open("report_summary.txt", "w", encoding="utf-8") as f:
+        f.write("\n".join(output_lines))
 
     return {
         "grade": grade,

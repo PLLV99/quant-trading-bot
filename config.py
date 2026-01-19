@@ -38,10 +38,10 @@ RISK_PARAMS = {
 
 # Portfolio Config (Backtesting only - Live uses run_mt5_live.py)
 PORTFOLIO_CONFIG = [
-    {"symbol": "XAUUSDm", "type": "metal"},  # Gold - Best performer
-    {"symbol": "XAGUSDm", "type": "metal"},  # Silver - NEW
-    {"symbol": "BTCUSDm", "type": "crypto"},
-    {"symbol": "USOILm", "type": "commodity"},
+    {"symbol": "XAUUSDm", "name": "Gold", "risk_weight": 1.0},
+    # Silver REMOVED - Too risky for small accounts
+    {"symbol": "BTCUSDm", "name": "Bitcoin", "risk_weight": 0.8},
+    {"symbol": "USOILm", "name": "Oil", "risk_weight": 0.6},
 ]
 
 # API Configuration

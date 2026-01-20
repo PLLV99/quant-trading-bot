@@ -257,7 +257,7 @@ def manage_trailing_stop():
 # =============================================================================
 def run_live_bot():
     logger.info("=" * 60)
-    logger.info("AntiGravity Bot v2.2 - WEALTH BUILDER")
+    logger.info("AntiGravity Bot v2.3 - PROFIT PROTECTOR")
     logger.info(f"Mode: Personal Growth (Risk {RISK_PER_TRADE_PERCENT*100}%)")
     logger.info(f"Portfolio: {[p['symbol'] for p in PORTFOLIO]}")
     logger.info("=" * 60)

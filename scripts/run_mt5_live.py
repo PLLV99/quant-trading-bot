@@ -1,13 +1,15 @@
 """
 AntiGravity Trading Bot - LIVE MT5 Edition
-Version 2.2 - "Wealth Builder" (Personal Growth)
+Version 2.3 - "Profit Protector" (Trailing Stop + Breakeven)
 
 Changes:
 - Mode: Personal Account ($300 Start) allows Aggressive Growth
 - Strategy: Long + Short (Reversing)
-- Portfolio: XAUUSD, BTCUSD, USOIL
+- Portfolio: XAUUSD, BTCUSD, USOIL (Silver REMOVED)
 - Sizing: DYNAMIC (Risk % based on Balance)
 - Safety: Stop Loss is Mandatory, but looser than FTMO
+- NEW: Breakeven (>= 1R profit -> SL to entry)
+- NEW: Trailing Stop (>= 2R profit -> SL follows price)
 """
 
 import sys
@@ -147,7 +149,110 @@ def close_positions(connector, symbol, position_type=None):
         logger.info(f"{symbol} CLOSED Ticket #{pos.ticket} (Reversal)")
 
 
-# =============================================================================
+def manage_trailing_stop():
+    """
+    Trailing Stop + Breakeven Logic
+    - Breakeven: When profit >= 1R (SL distance), move SL to entry price
+    - Trailing: When profit >= 2R, trail SL to lock in 1R profit
+
+    This protects profits and prevents winning trades from turning into losers.
+    """
+    positions = mt5.positions_get()
+    if not positions:
+        return
+
+    for pos in positions:
+        symbol = pos.symbol
+        ticket = pos.ticket
+        entry_price = pos.price_open
+        current_sl = pos.sl
+        current_tp = pos.tp
+        current_price = pos.price_current
+        pos_type = pos.type  # 0 = BUY, 1 = SELL
+
+        # Skip if no SL set
+        if current_sl == 0:
+            continue
+
+        # Calculate R (risk distance) from original SL
+        if pos_type == mt5.ORDER_TYPE_BUY:
+            original_risk = entry_price - current_sl  # For BUY, SL is below entry
+            current_profit_distance = current_price - entry_price
+        else:  # SELL
+            original_risk = current_sl - entry_price  # For SELL, SL is above entry
+            current_profit_distance = entry_price - current_price
+
+        # Skip if original_risk is invalid
+        if original_risk <= 0:
+            continue
+
+        # Calculate current R multiple
+        r_multiple = current_profit_distance / original_risk
+
+        # Get symbol info for tick size
+        symbol_info = mt5.symbol_info(symbol)
+        if not symbol_info:
+            continue
+        tick_size = symbol_info.trade_tick_size
+
+        new_sl = None
+
+        # === BREAKEVEN: Move SL to entry when profit >= 1R ===
+        if r_multiple >= 1.0:
+            if pos_type == mt5.ORDER_TYPE_BUY:
+                # For BUY, breakeven SL = entry + small buffer
+                breakeven_sl = entry_price + (tick_size * 5)  # 5 ticks above entry
+                if current_sl < breakeven_sl:
+                    new_sl = breakeven_sl
+            else:  # SELL
+                # For SELL, breakeven SL = entry - small buffer
+                breakeven_sl = entry_price - (tick_size * 5)  # 5 ticks below entry
+                if current_sl > breakeven_sl:
+                    new_sl = breakeven_sl
+
+        # === TRAILING: When profit >= 2R, trail SL to lock 1R ===
+        if r_multiple >= 2.0:
+            if pos_type == mt5.ORDER_TYPE_BUY:
+                # Trail SL to current_price - 1R
+                trailing_sl = current_price - original_risk
+                if trailing_sl > current_sl:
+                    new_sl = trailing_sl
+            else:  # SELL
+                # Trail SL to current_price + 1R
+                trailing_sl = current_price + original_risk
+                if trailing_sl < current_sl:
+                    new_sl = trailing_sl
+
+        # === APPLY NEW SL ===
+        if new_sl is not None:
+            # Round to tick size
+            new_sl = round(new_sl / tick_size) * tick_size
+
+            request = {
+                "action": mt5.TRADE_ACTION_SLTP,
+                "position": ticket,
+                "symbol": symbol,
+                "sl": new_sl,
+                "tp": current_tp,
+            }
+
+            result = mt5.order_send(request)
+            if result and result.retcode == mt5.TRADE_RETCODE_DONE:
+                if r_multiple >= 2.0:
+                    logger.info(
+                        f"[TRAILING] {symbol} #{ticket}: SL moved to {new_sl:.5f} (Lock {r_multiple:.1f}R)"
+                    )
+                else:
+                    logger.info(
+                        f"[BREAKEVEN] {symbol} #{ticket}: SL moved to {new_sl:.5f} (Protect Capital)"
+                    )
+            else:
+                error = result.retcode if result else "No result"
+                logger.warning(
+                    f"[TRAIL FAIL] {symbol} #{ticket}: Could not modify SL. Error: {error}"
+                )
+
+
 # MAIN BOT LOGIC
 # =============================================================================
 def run_live_bot():
@@ -203,6 +308,9 @@ def run_live_bot():
                         # But user wants "Let Run", so maybe we don't close here?
                         # Config has Profit Target 50% (unreachable), so this block strictly won't hit.
                         pass
+
+            # --- TRAILING STOP & BREAKEVEN (Every Loop) ---
+            manage_trailing_stop()
 
             for asset in PORTFOLIO:
                 symbol = asset["symbol"]

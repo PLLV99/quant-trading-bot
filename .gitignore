@@ -1,15 +1,37 @@
+# Python / Environment
 __pycache__/
 *.pyc
-logs/
-data/*.json
-data/*.csv
-.env
 .venv
 env/
-.git/
 .vscode/
-deployment.zip
-# Trade Reports (Contains Account Info)
+
+# Security - Credentials & Secrets (Research-backed)
+# Source: https://git-scm.com/docs/gitignore
+.env
+*.key
+*.token
+*credentials*
+*secret*
+config_live.py
+
+# Logs & Operation Data (Can contain sensitive info/strategies)
+# Source: OWASP Top 10 - Sensitive Data Exposure
+logs/
+*.log
+
+# Trade Data & Reports (Account numbers, PnL)
+data/*.json
+data/*.csv
+archive/
 *.html
 *.xlsx
-archive/
+*.db
+*.sqlite
+
+# Telegram / Bot Configs
+telegram_config.py
+bot_token.txt
+
+# Deployment
+deployment.zip
+.git/

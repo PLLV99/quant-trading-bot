@@ -34,6 +34,8 @@ ReportHistory*.xlsx
 !task.md
 !implementation_plan.md
 !walkthrough.md
+!SYSTEM_ARCHITECTURE.md
+!DEPLOYMENT_HANDOVER.md
 
 # IDE & System (ขยะระบบ)
 .vscode/

@@ -21,7 +21,7 @@ class StrategyEngine:
         self.config = {
             "grid_levels": 10,  # Reduced from 20
             "base_grid_step_pct": 0.01,
-            "trend_ma_period": 50,  # Trend Filter (was 200) - Faster for M15
+            "trend_ma_period": 200,  # Trend Filter (was 50) - Returing to 200 EMA per Analysis
             "ema_fast": 9,  # Was 18
             "ema_medium": 21,  # Was 35
             "min_atr_period": 14,
@@ -254,6 +254,14 @@ class StrategyEngine:
             momentum_allows_buy = True
             if rsi > rsi_ob:
                 momentum_allows_buy = False
+
+            # 1.5 Bollinger Squeeze Filter (New)
+            bb_width = market_data.get("bb_width", 100)
+            if hasattr(bb_width, "iloc"):
+                bb_width = bb_width.iloc[-1]
+
+            if bb_width < 0.15:  # 0.15% width is very tight squeeze
+                return {"action": "hold", "reason": "bollinger_squeeze_active"}
 
             # 2. Risk Manager Check (Gatekeeper)
             if not self.risk_manager.check_trade_allowed("buy", current_price):

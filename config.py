@@ -18,16 +18,16 @@ STRATEGY_PARAMS = {
 # Global Risk Parameters (The Fortress) - FREEDOM EDITION
 RISK_PARAMS = {
     # --- Capital Growth Mode (Rich Strategy) ---
-    "ftmo_mode": False,  # DISABLE DAILY LIMITS (User: "Old version worked")
-    "daily_loss_limit_pct": 0.10,  # Placeholder (Not used)
-    "daily_profit_target_pct": 0.00,  # Placeholder
-    "max_holding_hours": 9999,  # Disable Time Limit (Swing Trade allowed)
-    "max_drawdown_ftmo_pct": 0.15,  # Match Global Max DD
+    "ftmo_mode": False,  # DISABLE DAILY LIMITS
+    "daily_loss_limit_pct": 0.10,  # Not used
+    "daily_profit_target_pct": 0.00,  # Not used
+    "max_holding_hours": 9999,  # Disable Time Limit
+    "max_drawdown_ftmo_pct": 0.15,  # 15%
     # --- Safety Nets ---
-    "max_drawdown_limit": 0.15,  # 15% Max DD (User Spec: 15% + Halt)
+    "max_drawdown_limit": 0.15,  # 15% Max DD
     "stop_loss_atr_multiplier": 2.5,
-    # --- Position Sizing (BALANCED: ~10-15% monthly target) ---
-    "risk_per_trade_pct": 0.03,  # Risk 3% per trade (balanced)
+    # --- Position Sizing ---
+    "risk_per_trade_pct": 0.02,  # Risk 2% per trade
     "max_leverage_use": 100,
     # --- Advanced Features ---
     "martingale_detection_enabled": True,
@@ -41,7 +41,7 @@ PORTFOLIO_CONFIG = [
     {"symbol": "XAUUSDm", "name": "Gold", "risk_weight": 1.0},
     # Silver REMOVED - Too risky for small accounts
     {"symbol": "BTCUSDm", "name": "Bitcoin", "risk_weight": 0.8},
-    {"symbol": "USOILm", "name": "Oil", "risk_weight": 0.6},
+]
 ]
 
 # API Configuration

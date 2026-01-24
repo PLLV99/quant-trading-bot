@@ -398,10 +398,8 @@ class RiskManager:
         elif volatility_ratio > 1.2:  # Elevated volatility
             return 0.75
         elif volatility_ratio < 0.5:  # Very low volatility
-            print(
-                f"[BOOST] Low volatility ({volatility_ratio:.2f}x normal): Increasing size by 25%"
-            )
-            return 1.25
+            # DISABLED Boost to prevent Martingale-like behavior
+            return 1.0
         elif volatility_ratio < 0.8:  # Below normal volatility
             return 1.1
 

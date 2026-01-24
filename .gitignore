@@ -1,39 +1,44 @@
-# Python / Environment
-__pycache__/
-*.pyc
-.venv
-env/
-.vscode/
-
-# Security - Credentials & Secrets (Research-backed)
-# Source: https://git-scm.com/docs/gitignore
-.env
+# --- 🚨 CRITICAL SECURITY: DO NOT REMOVE ---
+# Credentials & Secrets (ห้ามเอาขึ้นเด็ดขาด!)
+credentials.json
+account_info.json
+secrets.py
 *.key
+*.pem
 *.token
-*credentials*
-*secret*
-config_live.py
+*.password
 
-# Logs & Operation Data (Can contain sensitive info/strategies)
-# Source: OWASP Top 10 - Sensitive Data Exposure
-logs/
+# Environment Variables
+.env
+.env.local
+.env.*
+config/secrets.py
+env/
+venv/
+.venv/
+
+# Logs & History (ข้อมูลส่วนตัว/ประวัติเทรด)
 *.log
-
-# Trade Data & Reports (Account numbers, PnL)
-data/*.json
-data/*.csv
-archive/
-*.html
-*.xlsx
-*.db
-*.sqlite
-
-# Telegram / Bot Configs
-telegram_config.py
-bot_token.txt
-
-# Deployment
-deployment.zip
-
-# Temp Files
+logs/
+reports/
+data/
+ReportHistory*.html
+ReportHistory*.xlsx
 *.txt
+*.csv
+*.json  # กันเหนียว: JSON ส่วนใหญ่มักเป็น Config/Data ส่วนตัว (ยกเว้น settings มาตรฐาน)
+
+# Text & Notes (อาจมี Note ลับ)
+*.md
+!README.md
+!task.md
+!implementation_plan.md
+!walkthrough.md
+
+# IDE & System (ขยะระบบ)
+.vscode/
+.idea/
+__pycache__/
+*.py[cod]
+.DS_Store
+Thumbs.db

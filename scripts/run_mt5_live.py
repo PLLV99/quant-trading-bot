@@ -43,24 +43,17 @@ PORTFOLIO = [
         "mode": "gold_ha",
         "timeframe": mt5.TIMEFRAME_H1,
     },  # Bitcoin
-    {
-        "symbol": "USOILm",
-        "mode": "gold_ha",
-        "timeframe": mt5.TIMEFRAME_H1,
-    },  # Oil H1 (was M15)
 ]
 
 # --- PERSONAL GROWTH SAFETY ---
 MAX_TOTAL_POSITIONS = 3  # Max 3 positions
 MAX_PER_SYMBOL = 1  # Max 1 position per symbol
-COOLDOWN_MINUTES = (
-    120  # FIXED: 120 min cooldown (was 60) - Prevent Machine Gun after Cut Loss
-)
+COOLDOWN_MINUTES = 60  # Reduced to 60 to catch successive trends (was 120)
 CHECK_INTERVAL_SEC = 60  # Check every minute
 EMERGENCY_MAX_POSITIONS = 6  # Halt if exceeded
 
 # --- RISK/REWARD (Rich Mode) ---
-RISK_PER_TRADE_PERCENT = 0.02  # Risk 2% (Optimized from backtest)
+RISK_PER_TRADE_PERCENT = 0.02  # Risk 2% (Agreed Standard)
 SL_ATR_MULT = 2.5  # Stop Loss = 2.5x ATR
 TP_ATR_MULT = 5.0  # Take Profit = 5x ATR (1:2 RR)
 
@@ -258,7 +251,7 @@ def manage_trailing_stop():
 def run_live_bot():
     logger.info("=" * 60)
     logger.info("AntiGravity Bot v2.3 - PROFIT PROTECTOR")
-    logger.info(f"Mode: Personal Growth (Risk {RISK_PER_TRADE_PERCENT*100}%)")
+    logger.info(f"Mode: Profit Protector (Risk {RISK_PER_TRADE_PERCENT*100}%)")
     logger.info(f"Portfolio: {[p['symbol'] for p in PORTFOLIO]}")
     logger.info("=" * 60)
 

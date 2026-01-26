@@ -1,6 +1,6 @@
 """
 AntiGravity Trading Bot - LIVE MT5 Edition
-Version 2.3 - "Profit Protector" (Trailing Stop + Breakeven)
+Version 3.0 - "Sniper & Squeeze" (Trend Following)
 
 Changes:
 - Mode: Personal Account ($300 Start) allows Aggressive Growth
@@ -250,8 +250,8 @@ def manage_trailing_stop():
 # =============================================================================
 def run_live_bot():
     logger.info("=" * 60)
-    logger.info("AntiGravity Bot v2.3 - PROFIT PROTECTOR")
-    logger.info(f"Mode: Profit Protector (Risk {RISK_PER_TRADE_PERCENT*100}%)")
+    logger.info("AntiGravity Bot v3.0 - SNIPER MODE")
+    logger.info(f"Mode: Sniper & Squeeze (Risk {RISK_PER_TRADE_PERCENT*100}%)")
     logger.info(f"Portfolio: {[p['symbol'] for p in PORTFOLIO]}")
     logger.info("=" * 60)
 

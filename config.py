@@ -42,7 +42,7 @@ PORTFOLIO_CONFIG = [
     # Silver REMOVED - Too risky for small accounts
     {"symbol": "BTCUSDm", "name": "Bitcoin", "risk_weight": 0.8},
 ]
-]
+
 
 # API Configuration
 EXCHANGE_ID = "mt5"

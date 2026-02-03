@@ -19,6 +19,12 @@ class RiskManager:
         self.stop_loss_atr_multiplier = config.get("stop_loss_atr_multiplier", 3.0)
         self.kelly_fraction = config.get("kelly_fraction", 0.5)
 
+        # --- NEW v1.1: Max Loss Cap ---
+        self.risk_per_trade_pct = config.get("risk_per_trade_pct", 0.02)  # 2%
+        self.max_loss_per_trade_usd = config.get(
+            "max_loss_per_trade_usd", 50.0
+        )  # $50 cap
+
         # --- FTMO / Prop Firm Parameters ---
         self.ftmo_mode = config.get("ftmo_mode", False)
         self.daily_loss_limit_pct = config.get("daily_loss_limit_pct", 0.02)
@@ -70,6 +76,8 @@ class RiskManager:
         print(f"   - Max Drawdown Limit: {self.max_drawdown_limit*100}%")
         print(f"   - ATR Stop Multiplier: {self.stop_loss_atr_multiplier}x")
         print(f"   - Kelly Fraction: {self.kelly_fraction}x")
+        print(f"   - Max Loss Cap: ${self.max_loss_per_trade_usd} per trade")  # NEW
+        print(f"   - Risk Per Trade: {self.risk_per_trade_pct*100}%")  # NEW
         print(f"   - Martingale Detection: {self.martingale_detection_enabled}")
         print(f"   - Floating Loss Limit: {self.floating_loss_limit_pct*100}%")
         print(f"   - Losing Streak Threshold: {self.losing_streak_threshold}")
@@ -170,22 +178,37 @@ class RiskManager:
         """
         Calculates safe position size using Sniper Logic.
         ENHANCED with Option A features: Volatility Scaling, Losing Streak, Martingale Detection.
+        NEW v1.1: Max Loss Cap to prevent catastrophic single-trade losses.
         """
         # 0. Check if trading allowed first
         allowed, reason = self.check_daily_status(account_balance)
         if not allowed:
             return 0.0
 
-        # 1. Hard Risk Limit ($6 or dynamic based on FTMO)
-        # In FTMO mode, we risk 0.35% of equity (per spec)
+        # 1. Calculate risk amount (2 methods, use minimum)
+        # Method A: Percentage of balance
+        risk_pct = (
+            self.risk_per_trade_pct if hasattr(self, "risk_per_trade_pct") else 0.02
+        )
+        risk_from_pct = account_balance * risk_pct
+
+        # Method B: Hard cap (Max Loss Cap)
+        max_loss_cap = (
+            self.max_loss_per_trade_usd
+            if hasattr(self, "max_loss_per_trade_usd")
+            else 50.0
+        )
+
+        # Use the SMALLER of the two (conservative approach)
+        risk_per_trade_usd = min(risk_from_pct, max_loss_cap)
+
+        # FTMO override (if applicable)
         if self.ftmo_mode:
-            risk_per_trade_usd = account_balance * 0.0035  # 0.35%
-        else:
-            risk_per_trade_usd = 6.0
+            risk_per_trade_usd = min(account_balance * 0.0035, max_loss_cap)  # 0.35%
 
         # 2. Stop Loss Distance (Volatility Based)
-        # Use 2.5x ATR for tighter stops on M15
-        stop_loss_distance = current_volatility_atr * 2.5
+        # Use configured ATR multiplier
+        stop_loss_distance = current_volatility_atr * self.stop_loss_atr_multiplier
 
         if stop_loss_distance == 0:
             return 0.0

@@ -28,6 +28,7 @@ RISK_PARAMS = {
     "stop_loss_atr_multiplier": 2.5,
     # --- Position Sizing ---
     "risk_per_trade_pct": 0.02,  # Risk 2% per trade
+    "max_loss_per_trade_usd": 50,  # MAX LOSS CAP: Never lose more than $50 per trade
     "max_leverage_use": 100,
     # --- Advanced Features ---
     "martingale_detection_enabled": True,

@@ -83,26 +83,28 @@ def calculate_lot_size(
 ):
     """
     Calculates dynamic lot size based on Risk %.
-    v1.2: Now uses RiskManager for Max Loss Cap if available.
+    v1.3.1: FIXED - Always use 2% of balance (removed fixed $50 cap)
 
-    Risk Amount = min(Balance * Risk%, MAX_LOSS_CAP)
-    Lot Size = Risk Amount / (SL Distance * Contract Size)
+    For $198 balance: Max loss = $3.96 per trade
+    For $500 balance: Max loss = $10 per trade
     """
     if sl_distance == 0:
         return 0.01
 
-    # v1.2 FIX: Use RiskManager's Max Loss Cap
+    # v1.3.1 FIX: ONLY use percentage, no fixed dollar cap
     if risk_manager:
-        max_loss_cap = getattr(risk_manager, "max_loss_per_trade_usd", 50.0)
         risk_pct_from_config = getattr(risk_manager, "risk_per_trade_pct", 0.02)
-        risk_amount = min(account_balance * risk_pct_from_config, max_loss_cap)
-        logger.info(
-            f"[RISK] Using Max Loss Cap: ${max_loss_cap}, Risk Amount: ${risk_amount:.2f}"
-        )
     else:
-        risk_amount = account_balance * risk_pct
+        risk_pct_from_config = risk_pct
 
-    # Get Contract Size (Mock/Safe default if fail)
+    # Risk amount = 2% of balance (dynamic, not fixed!)
+    risk_amount = account_balance * risk_pct_from_config
+
+    logger.info(
+        f"[RISK] Balance: ${account_balance:.2f}, Risk {risk_pct_from_config*100:.1f}% = ${risk_amount:.2f}"
+    )
+
+    # Get Contract Size
     symbol_info = mt5.symbol_info(symbol)
     if not symbol_info:
         logger.error(f"Failed to get info for {symbol}")
@@ -113,8 +115,7 @@ def calculate_lot_size(
     max_lot = symbol_info.volume_max
     step_lot = symbol_info.volume_step
 
-    # Formula: Risk = Volume * ContractSize * SL_Price_Diff
-    # Volume = Risk / (ContractSize * SL_Price_Diff)
+    # Formula: Volume = Risk / (ContractSize * SL_Price_Diff)
     raw_lot = risk_amount / (contract_size * sl_distance)
 
     # Round to step
@@ -123,10 +124,13 @@ def calculate_lot_size(
     # Cap limits
     lot = max(min_lot, min(lot, max_lot))
 
-    # Safety Cap for Small Accounts
-    if account_balance < 500 and lot > 0.1:
-        logger.warning(f"Capping lot size for safety: {lot} -> 0.1")
-        lot = 0.1
+    # v1.3.1: Stricter safety cap for small accounts
+    if account_balance < 300 and lot > 0.02:
+        logger.warning(f"[SAFETY] Small account cap: {lot:.2f} -> 0.02 lots")
+        lot = 0.02
+    elif account_balance < 500 and lot > 0.05:
+        logger.warning(f"[SAFETY] Medium account cap: {lot:.2f} -> 0.05 lots")
+        lot = 0.05
 
     return lot
 

@@ -96,6 +96,31 @@ class StrategyEngine:
         # Calculate Heikin Ashi
         price_history = self._calculate_heikin_ashi(price_history)
 
+        # v1.3 NEW: Calculate ADX (Average Directional Index) for trend strength
+        # ADX > 25 = Strong trend, ADX < 20 = Weak/Sideways
+        adx_period = 14
+
+        # +DM and -DM
+        high_diff = price_history["high"].diff()
+        low_diff = price_history["low"].diff().multiply(-1)
+
+        plus_dm = high_diff.where((high_diff > low_diff) & (high_diff > 0), 0)
+        minus_dm = low_diff.where((low_diff > high_diff) & (low_diff > 0), 0)
+
+        # True Range (already calculated above as true_range)
+        tr = true_range
+
+        # Smoothed values
+        atr_smooth = tr.rolling(window=adx_period).mean()
+        plus_di = 100 * (plus_dm.rolling(window=adx_period).mean() / atr_smooth)
+        minus_di = 100 * (minus_dm.rolling(window=adx_period).mean() / atr_smooth)
+
+        # DX and ADX
+        dx = 100 * (abs(plus_di - minus_di) / (plus_di + minus_di))
+        price_history["adx"] = dx.rolling(window=adx_period).mean()
+        price_history["+di"] = plus_di
+        price_history["-di"] = minus_di
+
         return price_history
 
     def _calculate_heikin_ashi(self, df):
@@ -324,6 +349,17 @@ class StrategyEngine:
             rsi = rsi.iloc[-1]
 
         signal = {"action": "hold", "trend": self.current_trend}
+
+        # v1.3 NEW: ADX Filter - Only trade when trend is strong (ADX > 25)
+        adx = row.get("adx", 30)  # Default 30 if not calculated
+        if hasattr(adx, "iloc"):
+            adx = adx.iloc[-1]
+
+        ADX_THRESHOLD = 25  # NotebookLM recommendation
+        if adx < ADX_THRESHOLD:
+            signal["action"] = "hold"
+            signal["reason"] = f"adx_too_low_{adx:.1f}"
+            return signal  # Don't trade in sideways market
 
         # Core Logic
         # 1. Macro Trend Filter (EMA 200)

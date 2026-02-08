@@ -78,16 +78,29 @@ logger = logging.getLogger("AntiGravity")
 # =============================================================================
 # HELPER FUNCTIONS
 # =============================================================================
-def calculate_lot_size(symbol, account_balance, risk_pct, sl_distance):
+def calculate_lot_size(
+    symbol, account_balance, risk_pct, sl_distance, risk_manager=None
+):
     """
     Calculates dynamic lot size based on Risk %.
-    Risk Amount = Balance * Risk%
+    v1.2: Now uses RiskManager for Max Loss Cap if available.
+
+    Risk Amount = min(Balance * Risk%, MAX_LOSS_CAP)
     Lot Size = Risk Amount / (SL Distance * Contract Size)
     """
     if sl_distance == 0:
         return 0.01
 
-    risk_amount = account_balance * risk_pct
+    # v1.2 FIX: Use RiskManager's Max Loss Cap
+    if risk_manager:
+        max_loss_cap = getattr(risk_manager, "max_loss_per_trade_usd", 50.0)
+        risk_pct_from_config = getattr(risk_manager, "risk_per_trade_pct", 0.02)
+        risk_amount = min(account_balance * risk_pct_from_config, max_loss_cap)
+        logger.info(
+            f"[RISK] Using Max Loss Cap: ${max_loss_cap}, Risk Amount: ${risk_amount:.2f}"
+        )
+    else:
+        risk_amount = account_balance * risk_pct
 
     # Get Contract Size (Mock/Safe default if fail)
     symbol_info = mt5.symbol_info(symbol)
@@ -105,15 +118,12 @@ def calculate_lot_size(symbol, account_balance, risk_pct, sl_distance):
     raw_lot = risk_amount / (contract_size * sl_distance)
 
     # Round to step
-    # Example: 0.123 -> 0.12 (if step 0.01)
-    # Using simple rounding for robustness
     lot = round(raw_lot / step_lot) * step_lot
 
     # Cap limits
     lot = max(min_lot, min(lot, max_lot))
 
-    # Safety Cap for Small Accounts ($300)
-    # Don't open crazy lots if data is weird
+    # Safety Cap for Small Accounts
     if account_balance < 500 and lot > 0.1:
         logger.warning(f"Capping lot size for safety: {lot} -> 0.1")
         lot = 0.1
@@ -368,10 +378,10 @@ def run_live_bot():
                         logger.info(f"   Blocked: Cooldown")
                         continue
 
-                    # Dynamic Sizing (Risk 3%)
+                    # Dynamic Sizing with Max Loss Cap (v1.2 FIX)
                     sl_dist = atr * SL_ATR_MULT
                     lot_size = calculate_lot_size(
-                        symbol, balance, RISK_PER_TRADE_PERCENT, sl_dist
+                        symbol, balance, RISK_PER_TRADE_PERCENT, sl_dist, risk_manager
                     )
 
                     sl = current_price - sl_dist
@@ -398,10 +408,10 @@ def run_live_bot():
                         logger.info(f"   Blocked: Cooldown")
                         continue
 
-                    # Dynamic Sizing
+                    # Dynamic Sizing with Max Loss Cap (v1.2 FIX)
                     sl_dist = atr * SL_ATR_MULT
                     lot_size = calculate_lot_size(
-                        symbol, balance, RISK_PER_TRADE_PERCENT, sl_dist
+                        symbol, balance, RISK_PER_TRADE_PERCENT, sl_dist, risk_manager
                     )
 
                     sl = current_price + sl_dist

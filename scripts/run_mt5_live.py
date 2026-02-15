@@ -207,25 +207,32 @@ def manage_trailing_stop():
         # === BREAKEVEN: Move SL to entry when profit >= 1R ===
         if r_multiple >= 1.0:
             if pos_type == mt5.ORDER_TYPE_BUY:
-                # For BUY, breakeven SL = entry + small buffer
                 breakeven_sl = entry_price + (tick_size * 5)  # 5 ticks above entry
                 if current_sl < breakeven_sl:
                     new_sl = breakeven_sl
             else:  # SELL
-                # For SELL, breakeven SL = entry - small buffer
                 breakeven_sl = entry_price - (tick_size * 5)  # 5 ticks below entry
                 if current_sl > breakeven_sl:
                     new_sl = breakeven_sl
 
+        # === v1.4 NEW: LOCK PROFIT at 1.5R -> SL to +0.5R ===
+        if r_multiple >= 1.5:
+            if pos_type == mt5.ORDER_TYPE_BUY:
+                lock_sl = entry_price + (original_risk * 0.5)  # Lock 0.5R profit
+                if lock_sl > current_sl:
+                    new_sl = lock_sl
+            else:  # SELL
+                lock_sl = entry_price - (original_risk * 0.5)  # Lock 0.5R profit
+                if lock_sl < current_sl:
+                    new_sl = lock_sl
+
         # === TRAILING: When profit >= 2R, trail SL to lock 1R ===
         if r_multiple >= 2.0:
             if pos_type == mt5.ORDER_TYPE_BUY:
-                # Trail SL to current_price - 1R
                 trailing_sl = current_price - original_risk
                 if trailing_sl > current_sl:
                     new_sl = trailing_sl
             else:  # SELL
-                # Trail SL to current_price + 1R
                 trailing_sl = current_price + original_risk
                 if trailing_sl < current_sl:
                     new_sl = trailing_sl
@@ -247,11 +254,15 @@ def manage_trailing_stop():
             if result and result.retcode == mt5.TRADE_RETCODE_DONE:
                 if r_multiple >= 2.0:
                     logger.info(
-                        f"[TRAILING] {symbol} #{ticket}: SL moved to {new_sl:.5f} (Lock {r_multiple:.1f}R)"
+                        f"[TRAILING] {symbol} #{ticket}: SL -> {new_sl:.3f} (Lock {r_multiple:.1f}R)"
+                    )
+                elif r_multiple >= 1.5:
+                    logger.info(
+                        f"[LOCK 0.5R] {symbol} #{ticket}: SL -> {new_sl:.3f} (Lock +0.5R profit)"
                     )
                 else:
                     logger.info(
-                        f"[BREAKEVEN] {symbol} #{ticket}: SL moved to {new_sl:.5f} (Protect Capital)"
+                        f"[BREAKEVEN] {symbol} #{ticket}: SL -> {new_sl:.3f} (Protect Capital)"
                     )
             else:
                 error = result.retcode if result else "No result"

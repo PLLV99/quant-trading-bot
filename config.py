@@ -1,5 +1,6 @@
 # AntiGravity Bot Configuration
 # Mode: PERSONAL WEALTH BUILDING (High Growth)
+# v2.0: Pullback Sniper Strategy
 
 # Global Strategy Parameters (The Engine)
 STRATEGY_PARAMS = {
@@ -7,10 +8,18 @@ STRATEGY_PARAMS = {
     "grid_step_percent": 0.005,  # 0.5% Grid Step
     "take_profit_percent": 0.005,  # 0.5% TP per grid level
     "ema_period": 200,  # Trend Filter
+    "ema_fast": 18,  # Fast EMA for crossover
+    "ema_medium": 35,  # Medium EMA for crossover
+    "trend_ma_period": 200,  # Macro trend filter
     "rsi_period": 14,  # Momentum
-    "rsi_overbought": 80,  # Loosened from 70 (more trades)
-    "rsi_oversold": 20,  # Loosened from 30 (more trades)
-    "cooldown_minutes": 60,  # Anti-Overtrading (1 Hour)
+    "rsi_overbought": 80,  # Extreme OB (safety net)
+    "rsi_oversold": 20,  # Extreme OS (safety net)
+    # v2.0 NEW: Pullback Sniper Parameters
+    "rsi_pullback_low": 35,  # RSI pullback zone lower bound
+    "rsi_pullback_high": 65,  # RSI pullback zone upper bound
+    "pullback_atr_threshold": 0.5,  # Price must be within 0.5x ATR of EMA18
+    "adx_threshold": 20,  # v2.0: Lowered from 25 to 20
+    "cooldown_minutes": 240,  # v2.0: 4 hours (H4 timeframe)
     "max_active_grids": 5,  # Limit
     "min_atr_period": 14,  # Volatility Window
 }
@@ -25,7 +34,7 @@ RISK_PARAMS = {
     "max_drawdown_ftmo_pct": 0.15,  # 15%
     # --- Safety Nets ---
     "max_drawdown_limit": 0.15,  # 15% Max DD
-    "stop_loss_atr_multiplier": 2.5,
+    "stop_loss_atr_multiplier": 1.5,  # v2.0: Tighter SL (pullback entry = closer SL)
     # --- Position Sizing ---
     "risk_per_trade_pct": 0.02,  # Risk 2% per trade
     "max_loss_per_trade_usd": 50,  # MAX LOSS CAP: Never lose more than $50 per trade

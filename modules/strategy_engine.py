@@ -121,6 +121,33 @@ class StrategyEngine:
         price_history["+di"] = plus_di
         price_history["-di"] = minus_di
 
+        # v2.0 NEW: Pullback Detection
+        # Price must be within pullback_atr_threshold * ATR of EMA18
+        pullback_threshold = self.config.get("pullback_atr_threshold", 0.5)
+        atr_col = price_history["atr"]
+        ema18_col = price_history["ema_18"]
+        close_col = price_history["close"]
+
+        # Distance from price to EMA18 (in ATR units)
+        price_to_ema18 = (close_col - ema18_col).abs() / atr_col
+        price_history["pullback_distance"] = price_to_ema18
+
+        # Pullback buy: price pulled back DOWN toward EMA18 from above
+        # Price is above EMA18 but close to it (within threshold)
+        price_history["pullback_buy"] = (
+            close_col >= ema18_col
+        ) & (  # Price still above EMA18
+            price_to_ema18 <= pullback_threshold
+        )  # But close to it
+
+        # Pullback sell: price pulled back UP toward EMA18 from below
+        # Price is below EMA18 but close to it (within threshold)
+        price_history["pullback_sell"] = (
+            close_col <= ema18_col
+        ) & (  # Price still below EMA18
+            price_to_ema18 <= pullback_threshold
+        )  # But close to it
+
         return price_history
 
     def _calculate_heikin_ashi(self, df):
@@ -328,72 +355,76 @@ class StrategyEngine:
 
     def _generate_gold_signal(self, current_price, row):
         """
-        Gold Heikin Ashi Logic:
-        Buy: Price > EMA 200 AND EMA 18 > EMA 35 (Crossover/Stacked)
-        Sell: Exit when EMA 18 < EMA 35 (Cross down)
+        v2.0 Pullback Sniper Logic:
+
+        LONG:  Price > EMA200 AND EMA18 > EMA35 AND pullback near EMA18
+               AND RSI in pullback zone (35-65)
+        SHORT: Price < EMA200 AND EMA18 < EMA35 AND pullback near EMA18
+               AND RSI in pullback zone (35-65)
+
+        Key difference from v1: We wait for PULLBACK, not just crossover.
         """
+
         # Extract scalar values from Series if needed
-        ema_18 = (
-            row["ema_18"].iloc[-1] if hasattr(row["ema_18"], "iloc") else row["ema_18"]
-        )
-        ema_35 = (
-            row["ema_35"].iloc[-1] if hasattr(row["ema_35"], "iloc") else row["ema_35"]
-        )
-        ema_200 = (
-            row["ema_200"].iloc[-1]
-            if hasattr(row["ema_200"], "iloc")
-            else row["ema_200"]
-        )
-        rsi = row.get("rsi", 50)
-        if hasattr(rsi, "iloc"):
-            rsi = rsi.iloc[-1]
+        def scalar(val):
+            return val.iloc[-1] if hasattr(val, "iloc") else val
+
+        ema_18 = scalar(row["ema_18"])
+        ema_35 = scalar(row["ema_35"])
+        ema_200 = scalar(row["ema_200"])
+        rsi = scalar(row.get("rsi", 50))
+        adx = scalar(row.get("adx", 30))
 
         signal = {"action": "hold", "trend": self.current_trend}
 
-        # v1.3 NEW: ADX Filter - Only trade when trend is strong (ADX > 25)
-        adx = row.get("adx", 30)  # Default 30 if not calculated
-        if hasattr(adx, "iloc"):
-            adx = adx.iloc[-1]
-
-        ADX_THRESHOLD = 25  # NotebookLM recommendation
-        if adx < ADX_THRESHOLD:
-            signal["action"] = "hold"
-            signal["reason"] = f"adx_too_low_{adx:.1f}"
-            return signal  # Don't trade in sideways market
-
-        # Core Logic
-        # 1. Macro Trend Filter (EMA 200)
-        is_uptrend_macro = current_price > ema_200
-        is_downtrend_macro = current_price < ema_200
-
-        # 2. RSI Momentum Filter (Using config values)
-        # Loosened to allow more trades for higher profit target
+        # === FILTER 1: ADX - Must have some trend ===
         import config
 
-        rsi_ob = config.STRATEGY_PARAMS.get("rsi_overbought", 80)
-        rsi_os = config.STRATEGY_PARAMS.get("rsi_oversold", 20)
-        is_momentum_long = rsi_os < rsi < rsi_ob  # Allow wider range
-        is_momentum_short = rsi_os < rsi < rsi_ob
+        ADX_THRESHOLD = config.STRATEGY_PARAMS.get("adx_threshold", 20)
+        if adx < ADX_THRESHOLD:
+            signal["reason"] = f"adx_too_low_{adx:.1f}"
+            return signal
 
-        # 3. Entry Triggers (EMA Crossover)
-        # EMA 18 > EMA 35 = Bullish Momentum
-        is_bullish_cross = ema_18 > ema_35
-        # EMA 18 < EMA 35 = Bearish Momentum
-        is_bearish_cross = ema_18 < ema_35
+        # === FILTER 2: Macro Trend (EMA 200) ===
+        is_uptrend = current_price > ema_200
+        is_downtrend = current_price < ema_200
 
-        # --- LONG SIGNAL ---
-        if is_uptrend_macro and is_bullish_cross and is_momentum_long:
+        # === FILTER 3: Momentum Direction (EMA crossover must be confirmed) ===
+        is_bullish_momentum = ema_18 > ema_35
+        is_bearish_momentum = ema_18 < ema_35
+
+        # === FILTER 4: RSI Pullback Zone ===
+        # For LONGS: RSI should be in 35-65 range (pulled back from overbought)
+        # For SHORTS: RSI should be in 35-65 range (pulled back from oversold)
+        rsi_pb_low = config.STRATEGY_PARAMS.get("rsi_pullback_low", 35)
+        rsi_pb_high = config.STRATEGY_PARAMS.get("rsi_pullback_high", 65)
+        is_rsi_pullback = rsi_pb_low < rsi < rsi_pb_high
+
+        # === FILTER 5: Price Pullback to EMA18 (NEW in v2.0) ===
+        pullback_buy = scalar(row.get("pullback_buy", False))
+        pullback_sell = scalar(row.get("pullback_sell", False))
+
+        # === LONG SIGNAL ===
+        # All 5 conditions must be True
+        if is_uptrend and is_bullish_momentum and is_rsi_pullback and pullback_buy:
             signal["action"] = "buy_signal"
             signal["trend"] = "bullish"
+            signal["reason"] = f"pullback_long_rsi{rsi:.0f}_adx{adx:.0f}"
 
-        # --- SHORT SIGNAL ---
-        elif is_downtrend_macro and is_bearish_cross and is_momentum_short:
+        # === SHORT SIGNAL ===
+        elif is_downtrend and is_bearish_momentum and is_rsi_pullback and pullback_sell:
             signal["action"] = "sell_signal"
             signal["trend"] = "bearish"
+            signal["reason"] = f"pullback_short_rsi{rsi:.0f}_adx{adx:.0f}"
 
-        # --- EXIT SIGNALS (Reversal) ---
-        # If we are in opposite cross, we might want to exit even if not full reversal
-        # For simple reversing strategy, the opposite signal acts as exit.
+        # === HOLD (most of the time) ===
+        else:
+            if is_uptrend and is_bullish_momentum and not pullback_buy:
+                signal["reason"] = "waiting_for_pullback"
+            elif is_downtrend and is_bearish_momentum and not pullback_sell:
+                signal["reason"] = "waiting_for_pullback"
+            elif not is_rsi_pullback:
+                signal["reason"] = f"rsi_outside_zone_{rsi:.0f}"
 
         return signal
 

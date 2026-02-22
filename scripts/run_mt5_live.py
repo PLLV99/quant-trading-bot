@@ -1,15 +1,13 @@
 """
 AntiGravity Trading Bot - LIVE MT5 Edition
-Version 3.0 - "Sniper & Squeeze" (Trend Following)
+Version 4.0 - "Pullback Sniper" (Trend Following v2.0)
 
-Changes:
-- Mode: Personal Account ($300 Start) allows Aggressive Growth
-- Strategy: Long + Short (Reversing)
-- Portfolio: XAUUSD, BTCUSD, USOIL (Silver REMOVED)
-- Sizing: DYNAMIC (Risk % based on Balance)
-- Safety: Stop Loss is Mandatory, but looser than FTMO
-- NEW: Breakeven (>= 1R profit -> SL to entry)
-- NEW: Trailing Stop (>= 2R profit -> SL follows price)
+v2.0 Strategy Redesign:
+- ENTRY: Pullback to EMA18 (not EMA crossover)
+- TIMEFRAME: H4 (was H1) - less noise, better signals
+- R:R: 1:3 (SL 1.5x ATR, TP 4.5x ATR)
+- FILTER: RSI pullback zone (35-65) + ADX > 20
+- TRAILING: 4-level profit lock system
 """
 
 import sys
@@ -35,27 +33,27 @@ PORTFOLIO = [
     {
         "symbol": "XAUUSDm",
         "mode": "gold_ha",
-        "timeframe": mt5.TIMEFRAME_H1,
-    },  # Gold - Best performer
+        "timeframe": mt5.TIMEFRAME_H4,  # v2.0: H4 (was H1)
+    },  # Gold
     # Silver REMOVED - Contract size too large for small accounts
     {
         "symbol": "BTCUSDm",
         "mode": "gold_ha",
-        "timeframe": mt5.TIMEFRAME_H1,
+        "timeframe": mt5.TIMEFRAME_H4,  # v2.0: H4 (was H1)
     },  # Bitcoin
 ]
 
 # --- PERSONAL GROWTH SAFETY ---
 MAX_TOTAL_POSITIONS = 3  # Max 3 positions
 MAX_PER_SYMBOL = 1  # Max 1 position per symbol
-COOLDOWN_MINUTES = 60  # Reduced to 60 to catch successive trends (was 120)
+COOLDOWN_MINUTES = 240  # v2.0: 4 hours (H4 candle period)
 CHECK_INTERVAL_SEC = 60  # Check every minute
 EMERGENCY_MAX_POSITIONS = 6  # Halt if exceeded
 
-# --- RISK/REWARD (Rich Mode) ---
+# --- RISK/REWARD v2.0 (Pullback Sniper) ---
 RISK_PER_TRADE_PERCENT = 0.02  # Risk 2% (Agreed Standard)
-SL_ATR_MULT = 2.5  # Stop Loss = 2.5x ATR
-TP_ATR_MULT = 5.0  # Take Profit = 5x ATR (1:2 RR)
+SL_ATR_MULT = 1.5  # v2.0: Stop Loss = 1.5x ATR (tighter, pullback entry)
+TP_ATR_MULT = 4.5  # v2.0: Take Profit = 4.5x ATR (R:R = 1:3)
 
 # Tracking
 last_trade_time = {}
@@ -158,11 +156,12 @@ def close_positions(connector, symbol, position_type=None):
 
 def manage_trailing_stop():
     """
-    Trailing Stop + Breakeven Logic
-    - Breakeven: When profit >= 1R (SL distance), move SL to entry price
-    - Trailing: When profit >= 2R, trail SL to lock in 1R profit
+    v2.0 Trailing Stop - 4-Level Profit Lock System (for 1:3 R:R)
 
-    This protects profits and prevents winning trades from turning into losers.
+    Level 1: >= 1.0R → SL to Breakeven (entry)
+    Level 2: >= 1.5R → SL locks 0.75R profit
+    Level 3: >= 2.0R → SL locks 1.5R profit
+    Level 4: >= 2.5R → Trail: SL = Price - 1R (dynamic)
     """
     positions = mt5.positions_get()
     if not positions:
@@ -189,7 +188,7 @@ def manage_trailing_stop():
             original_risk = current_sl - entry_price  # For SELL, SL is above entry
             current_profit_distance = entry_price - current_price
 
-        # Skip if original_risk is invalid
+        # Skip if original_risk is invalid (SL already moved past entry)
         if original_risk <= 0:
             continue
 
@@ -203,43 +202,62 @@ def manage_trailing_stop():
         tick_size = symbol_info.trade_tick_size
 
         new_sl = None
+        level_name = ""
 
-        # === BREAKEVEN: Move SL to entry when profit >= 1R ===
+        # === LEVEL 1: BREAKEVEN at 1R ===
         if r_multiple >= 1.0:
             if pos_type == mt5.ORDER_TYPE_BUY:
-                breakeven_sl = entry_price + (tick_size * 5)  # 5 ticks above entry
+                breakeven_sl = entry_price + (tick_size * 5)
                 if current_sl < breakeven_sl:
                     new_sl = breakeven_sl
-            else:  # SELL
-                breakeven_sl = entry_price - (tick_size * 5)  # 5 ticks below entry
+                    level_name = "BREAKEVEN"
+            else:
+                breakeven_sl = entry_price - (tick_size * 5)
                 if current_sl > breakeven_sl:
                     new_sl = breakeven_sl
+                    level_name = "BREAKEVEN"
 
-        # === v1.4 NEW: LOCK PROFIT at 1.5R -> SL to +0.5R ===
+        # === LEVEL 2: LOCK 0.75R at 1.5R ===
         if r_multiple >= 1.5:
             if pos_type == mt5.ORDER_TYPE_BUY:
-                lock_sl = entry_price + (original_risk * 0.5)  # Lock 0.5R profit
+                lock_sl = entry_price + (original_risk * 0.75)
                 if lock_sl > current_sl:
                     new_sl = lock_sl
-            else:  # SELL
-                lock_sl = entry_price - (original_risk * 0.5)  # Lock 0.5R profit
+                    level_name = "LOCK 0.75R"
+            else:
+                lock_sl = entry_price - (original_risk * 0.75)
                 if lock_sl < current_sl:
                     new_sl = lock_sl
+                    level_name = "LOCK 0.75R"
 
-        # === TRAILING: When profit >= 2R, trail SL to lock 1R ===
+        # === LEVEL 3: LOCK 1.5R at 2R ===
         if r_multiple >= 2.0:
+            if pos_type == mt5.ORDER_TYPE_BUY:
+                lock_sl = entry_price + (original_risk * 1.5)
+                if lock_sl > current_sl:
+                    new_sl = lock_sl
+                    level_name = "LOCK 1.5R"
+            else:
+                lock_sl = entry_price - (original_risk * 1.5)
+                if lock_sl < current_sl:
+                    new_sl = lock_sl
+                    level_name = "LOCK 1.5R"
+
+        # === LEVEL 4: DYNAMIC TRAIL at 2.5R+ ===
+        if r_multiple >= 2.5:
             if pos_type == mt5.ORDER_TYPE_BUY:
                 trailing_sl = current_price - original_risk
                 if trailing_sl > current_sl:
                     new_sl = trailing_sl
-            else:  # SELL
+                    level_name = f"TRAIL {r_multiple:.1f}R"
+            else:
                 trailing_sl = current_price + original_risk
                 if trailing_sl < current_sl:
                     new_sl = trailing_sl
+                    level_name = f"TRAIL {r_multiple:.1f}R"
 
         # === APPLY NEW SL ===
         if new_sl is not None:
-            # Round to tick size
             new_sl = round(new_sl / tick_size) * tick_size
 
             request = {
@@ -252,18 +270,7 @@ def manage_trailing_stop():
 
             result = mt5.order_send(request)
             if result and result.retcode == mt5.TRADE_RETCODE_DONE:
-                if r_multiple >= 2.0:
-                    logger.info(
-                        f"[TRAILING] {symbol} #{ticket}: SL -> {new_sl:.3f} (Lock {r_multiple:.1f}R)"
-                    )
-                elif r_multiple >= 1.5:
-                    logger.info(
-                        f"[LOCK 0.5R] {symbol} #{ticket}: SL -> {new_sl:.3f} (Lock +0.5R profit)"
-                    )
-                else:
-                    logger.info(
-                        f"[BREAKEVEN] {symbol} #{ticket}: SL -> {new_sl:.3f} (Protect Capital)"
-                    )
+                logger.info(f"[{level_name}] {symbol} #{ticket}: SL -> {new_sl:.3f}")
             else:
                 error = result.retcode if result else "No result"
                 logger.warning(
@@ -275,8 +282,10 @@ def manage_trailing_stop():
 # =============================================================================
 def run_live_bot():
     logger.info("=" * 60)
-    logger.info("AntiGravity Bot v3.0 - SNIPER MODE")
-    logger.info(f"Mode: Sniper & Squeeze (Risk {RISK_PER_TRADE_PERCENT*100}%)")
+    logger.info("AntiGravity Bot v4.0 - PULLBACK SNIPER")
+    logger.info(
+        f"Mode: Pullback Sniper v2.0 (Risk {RISK_PER_TRADE_PERCENT*100}%, RR 1:3, H4)"
+    )
     logger.info(f"Portfolio: {[p['symbol'] for p in PORTFOLIO]}")
     logger.info("=" * 60)
 

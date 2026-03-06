@@ -1,5 +1,4 @@
-# --- 🚨 CRITICAL SECURITY: DO NOT REMOVE ---
-# Credentials & Secrets (ห้ามเอาขึ้นเด็ดขาด!)
+# --- Security: Credentials & Secrets ---
 credentials.json
 account_info.json
 secrets.py
@@ -7,40 +6,56 @@ secrets.py
 *.pem
 *.token
 *.password
-
-# Environment Variables
 .env
 .env.local
 .env.*
 config/secrets.py
+
+# --- Virtual Environments ---
 env/
 venv/
 .venv/
 
-# Logs & History (ข้อมูลส่วนตัว/ประวัติเทรด)
+# --- Logs & Data ---
 *.log
 logs/
-reports/
 data/
+reports/
+
+# --- Trade Reports (Personal Data) ---
 ReportHistory*.html
 ReportHistory*.xlsx
-*.txt
-*.csv
-*.json  # กันเหนียว: JSON ส่วนใหญ่มักเป็น Config/Data ส่วนตัว (ยกเว้น settings มาตรฐาน)
+ReportHistory*.png
 
-# Text & Notes (อาจมี Note ลับ)
-*.md
-!README.md
-!task.md
-!implementation_plan.md
-!walkthrough.md
-!SYSTEM_ARCHITECTURE.md
-!DEPLOYMENT_HANDOVER.md
+# --- Internal Docs (Not for public) ---
+DEPLOYMENT_HANDOVER.md
+SYSTEM_ARCHITECTURE.md
+VPS_MIGRATION_SECURITY.md
+docs/DD_TRACKER.md
+docs/FUTURE_FEATURES.md
+docs/MT5_DEPLOYMENT.md
+docs/QUANT_INTERVIEW_STRATEGY_GUIDE.md
+docs/SOURCE_CODE_FOR_REVIEW.md
+docs/STRATEGY_REVIEW.md
+docs/VPS_MIGRATION_CHECKLIST.md
+docs/research_materials.md
+docs/working_agreement.md
 
-# IDE & System (ขยะระบบ)
+# --- Windows Scripts (not useful for portfolio) ---
+*.bat
+
+# --- IDE & System ---
 .vscode/
 .idea/
+.agent/
 __pycache__/
 *.py[cod]
 .DS_Store
 Thumbs.db
+
+# --- Build ---
+uv.lock
+*.txt
+!requirements.txt
+*.csv
+*.json

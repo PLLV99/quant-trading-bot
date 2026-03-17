@@ -10,7 +10,7 @@ import os
 # Add project root to path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from modules.risk_manager import RiskManager
+from core.risk.risk_manager import RiskManager
 
 
 class TestMartingaleDetection(unittest.TestCase):

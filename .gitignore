@@ -28,18 +28,8 @@ ReportHistory*.xlsx
 ReportHistory*.png
 
 # --- Internal Docs (Not for public) ---
-DEPLOYMENT_HANDOVER.md
-SYSTEM_ARCHITECTURE.md
-VPS_MIGRATION_SECURITY.md
-docs/DD_TRACKER.md
-docs/FUTURE_FEATURES.md
-docs/MT5_DEPLOYMENT.md
 docs/QUANT_INTERVIEW_STRATEGY_GUIDE.md
-docs/SOURCE_CODE_FOR_REVIEW.md
-docs/STRATEGY_REVIEW.md
-docs/VPS_MIGRATION_CHECKLIST.md
-docs/research_materials.md
-docs/working_agreement.md
+docs/QUANT_CAREER_ROADMAP.md
 
 # --- Windows Scripts (not useful for portfolio) ---
 *.bat

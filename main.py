@@ -4,10 +4,10 @@ import pandas as pd
 import numpy as np
 import config
 
-from modules.strategy_engine import StrategyEngine
-from modules.risk_manager import RiskManager
-from modules.backtester import Backtester
-from modules.data_loader import DataLoader
+from core.signals.strategy_engine import StrategyEngine
+from core.risk.risk_manager import RiskManager
+from core.analytics.backtester import Backtester
+from core.data.data_loader import DataLoader
 
 def run_backtest_portfolio(days=30, strategy_mode='grid'):
     """
@@ -108,7 +108,7 @@ def main():
         run_backtest_portfolio(days=args.days, strategy_mode=args.strategy)
         
     elif args.mode == 'paper':
-        from modules.paper_trader import PaperTrader
+        from core.analytics.paper_trader import PaperTrader
         print("--- JOINING THE MATRIX (Paper Trading Mode) ---")
         trader = PaperTrader(max_days=args.days)
         trader.run()

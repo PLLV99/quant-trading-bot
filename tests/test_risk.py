@@ -2,7 +2,7 @@ import sys
 import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from modules.risk_manager import RiskManager
+from core.risk.risk_manager import RiskManager
 
 class MockConfig:
     def get(self, key, default):

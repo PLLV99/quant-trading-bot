@@ -10,8 +10,8 @@ import numpy as np
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from modules.strategy_engine import StrategyEngine
-from modules.risk_manager import RiskManager
+from core.signals.strategy_engine import StrategyEngine
+from core.risk.risk_manager import RiskManager
 import config
 
 

@@ -7,10 +7,10 @@ import sys
 import os
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from modules.mt5_connector import MT5Connector
-from modules.strategy_engine import StrategyEngine
-from modules.risk_manager import RiskManager
-from modules.backtester import Backtester
+from core.data.mt5_connector import MT5Connector
+from core.signals.strategy_engine import StrategyEngine
+from core.risk.risk_manager import RiskManager
+from core.analytics.backtester import Backtester
 import config
 import pandas as pd
 

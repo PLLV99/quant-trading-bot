@@ -7,9 +7,9 @@ import logging
 import pandas as pd
 from datetime import datetime
 import config
-from modules.risk_manager import RiskManager
-from modules.strategy_engine import StrategyEngine
-from modules.data_loader import DataLoader
+from core.risk.risk_manager import RiskManager
+from core.signals.strategy_engine import StrategyEngine
+from core.data.data_loader import DataLoader
 
 # Setup Logging
 os.makedirs('logs', exist_ok=True)

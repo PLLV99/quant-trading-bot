@@ -15,9 +15,9 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import pandas as pd
 import numpy as np
 import config
-from modules.strategy_engine import StrategyEngine
-from modules.risk_manager import RiskManager
-from modules.backtester import Backtester
+from core.signals.strategy_engine import StrategyEngine
+from core.risk.risk_manager import RiskManager
+from core.analytics.backtester import Backtester
 
 # ═══════════════════════════════════════
 # CONFIGURATION

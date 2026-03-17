@@ -22,9 +22,9 @@ import MetaTrader5 as mt5
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import config
-from modules.mt5_connector import MT5Connector
-from modules.strategy_engine import StrategyEngine
-from modules.risk_manager import RiskManager
+from core.data.mt5_connector import MT5Connector
+from core.signals.strategy_engine import StrategyEngine
+from core.risk.risk_manager import RiskManager
 
 # =============================================================================
 # CONFIGURATION

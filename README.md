@@ -87,9 +87,10 @@ python scripts/run_backtest_v2.py
 
 This project was tested with real capital on a demo account ($300 initial balance, 223 trades over 2.5 months). Key findings:
 
-- **Position sizing constraints**: Minimum lot sizes (0.01) on Gold created 32% risk-per-trade on small accounts, far exceeding the intended 2%. Capital requirements must be factored into strategy design.
-- **Asset-specific performance**: The strategy performed well on Gold (clean trends) but poorly on Bitcoin (choppy, news-driven).
-- **Strategy is not a product until capital-matched**: A profitable strategy on paper can lose money in practice due to broker constraints.
+- **Theoretical position sizing ≠ practical position sizing.** The Kelly Criterion and fractional risk models assume infinitely divisible position sizes. In practice, a broker's minimum lot size (0.01) creates a hard floor on risk-per-trade. For Gold, this meant 32% risk-per-trade instead of the intended 2%.
+- **Capital-instrument mismatch is the real killer.** The strategy's R:R ratio was sound (avg win $34 vs avg loss $17 = 2:1), but Profit Factor was 0.96 because oversized positions destroyed the edge. Minimum balance for Gold at 2% risk: ~$4,500.
+- **Asset-specific performance matters.** Gold produced large wins during trends (+$208, +$424) but catastrophic losses during volatility spikes (-$355). Bitcoin was more capital-appropriate but had lower win rate (37%).
+- **A 1.5× ATR stop-loss is useless if the minimum pip value forces 100% portfolio risk.** Risk management must account for the minimum viable execution size of each instrument.
 
 ## Tech Stack
 

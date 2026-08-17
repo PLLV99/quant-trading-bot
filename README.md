@@ -15,41 +15,51 @@ AntiGravity is a Python-based algorithmic trading bot that implements a **Pullba
 
 ## Architecture (Pipeline)
 
+Each stage is a module, and the stage boundary is where the data changes shape:
+prices in, a signal out, a signal plus a size out, an order placed.
+
 ```
-┌─────────┐   ┌──────────┐   ┌────────────┐   ┌───────────┐
-│  DATA   │──▶│  SIGNAL  │──▶│    RISK    │──▶│ EXECUTION │
-│  Layer  │   │  Layer   │   │   Layer    │   │   Layer   │
-└─────────┘   └──────────┘   └────────────┘   └───────────┘
+┌────────────┐   ┌──────────────┐   ┌──────────────┐   ┌──────────────┐
+│    DATA    │──▶│    SIGNAL    │──▶│     RISK     │──▶│  EXECUTION   │
+│  MT5 API   │   │  strategy_   │   │    risk_     │   │  run_mt5_    │
+│  (OHLC)    │   │  engine.py   │   │  manager.py  │   │   live.py    │
+└────────────┘   └──────────────┘   └──────────────┘   └──────────────┘
+                  5-filter entry     sizing + limits     orders + trail
 ```
 
 ```
 quant-trading-bot/
-├── config.py                 # Strategy parameters & risk settings
-├── main.py                   # Entry point
+├── config.py                    # Strategy parameters & risk settings
+├── main.py                      # Entry point
 │
-├── core/                     # Pipeline Architecture
-│   ├── data/                 # Data Layer
-│   │   ├── mt5_connector.py  # MetaTrader 5 API wrapper
-│   │   └── data_loader.py    # Historical data fetching
-│   ├── signals/              # Signal Layer
-│   │   └── strategy_engine.py # Pullback Sniper v2.0
-│   ├── risk/                 # Risk Layer
-│   │   └── risk_manager.py   # Position sizing & drawdown control
-│   └── analytics/            # Analytics Layer
-│       ├── backtester.py     # Backtesting engine + Monte Carlo
-│       └── paper_trader.py   # Paper trading simulator
+├── core/
+│   ├── signals/
+│   │   └── strategy_engine.py   # Pullback Sniper v2.0 — indicators + 5-filter entry
+│   ├── risk/
+│   │   └── risk_manager.py      # Position sizing, drawdown limits, streak detection
+│   └── analytics/
+│       ├── backtester.py        # Backtesting engine + Monte Carlo
+│       └── paper_trader.py      # Paper trading simulator
 │
-├── scripts/                  # Executable scripts
-│   └── run_backtest_v2.py    # Run backtests with full analytics
+├── scripts/                     # Executable entry points
+│   ├── run_mt5_live.py          # Live execution — MT5 connection, 4-level trailing stop
+│   ├── run_backtest_v2.py       # Full backtest with analytics
+│   ├── quick_backtest.py        # Fast iteration on strategy parameters
+│   └── analyze_report.py        # Post-run trade report analysis
 │
-├── tests/                    # Unit tests
-│   ├── test_strategy_v2.py
-│   ├── test_risk.py
+├── tests/                       # pytest
+│   ├── test_strategy.py         test_strategy_v2.py
+│   ├── test_risk.py             test_risk_enhanced.py    test_risk_ftmo.py
 │   └── test_backtest.py
 │
-└── docs/                     # Documentation
-    └── CHANGELOG.md
+└── docs/
+    ├── CHANGELOG.md
+    └── POST_MORTEM_ANALYSIS.md  # Why a 2:1 R:R strategy still lost money
 ```
+
+> There is no separate `core/data/` module — the MetaTrader 5 connection lives in the
+> scripts that need it (`run_mt5_live.py` for live trading, `run_backtest_v2.py` for
+> historical data), since that is the only place the broker API is touched.
 
 ## Strategy: Pullback Sniper v2.0
 

@@ -1,10 +1,10 @@
-# AntiGravity — Algorithmic Trading System
+# Quant Trading Bot — Algorithmic Trading System
 
 > **Portfolio Project** — A complete algorithmic trading system built from scratch, demonstrating quantitative finance, risk management, and software engineering skills.
 
 ## Overview
 
-AntiGravity is a Python-based algorithmic trading bot that implements a **Pullback Sniper** strategy on Gold (XAUUSDm) and Bitcoin (BTCUSDm) via MetaTrader 5. The system features ATR-based dynamic stop-loss/take-profit, multi-timeframe trend confirmation, and institutional-grade risk management.
+A Python-based algorithmic trading system implementing a **Pullback Sniper** strategy on Gold (XAUUSDm) and Bitcoin (BTCUSDm) via MetaTrader 5, with ATR-based dynamic stop-loss and take-profit, multi-timeframe trend confirmation, and layered risk controls.
 
 ### Key Features
 

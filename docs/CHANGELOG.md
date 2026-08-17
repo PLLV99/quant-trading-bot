@@ -1,6 +1,6 @@
-# AntiGravity Bot — Changelog & Post-Mortem
+# Quant Trading Bot — Changelog & Post-Mortem
 
-> Development history and performance analysis of the AntiGravity algorithmic trading system.
+> Development history and performance analysis of the Quant Trading Bot algorithmic trading system.
 
 ---
 

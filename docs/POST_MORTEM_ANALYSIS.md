@@ -1,7 +1,7 @@
-# AntiGravity Bot — Post-Mortem Analysis
+# Quant Trading Bot — Post-Mortem Analysis
 
 > **Document Type:** Engineering Post-Mortem  
-> **System:** AntiGravity Algorithmic Trading Bot v1.0–v2.0  
+> **System:** Quant Trading Bot — Algorithmic Trading System v1.0–v2.0  
 > **Period:** Jan 4, 2026 → Mar 16, 2026 (72 days)  
 > **Result:** Net Loss -$108.72 (-36.2% of initial capital)  
 > **Author:** System Architect Review

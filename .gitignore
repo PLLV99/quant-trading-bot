@@ -33,9 +33,6 @@ ReportHistory*.png
 docs/QUANT_INTERVIEW_STRATEGY_GUIDE.md
 docs/QUANT_CAREER_ROADMAP.md
 
-# --- Windows Scripts (not useful for portfolio) ---
-*.bat
-
 # --- IDE & System ---
 .vscode/
 .idea/
@@ -46,9 +43,8 @@ __pycache__/
 Thumbs.db
 
 # --- Build ---
-uv.lock
+# uv.lock is deliberately committed: it is what makes "clone and run" reproducible.
 *.txt
-!requirements.txt
 *.csv
 *.json
 # Backtest artefacts

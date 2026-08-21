@@ -8,17 +8,14 @@ echo   Stopping...
 echo ====================================
 echo.
 
-REM Find and kill Python processes running the bot
+REM Match on the command line, not the window title. uv launches the bot as a
+REM plain python.exe with no title set, so a WINDOWTITLE filter never matches
+REM and a bare IMAGENAME filter would kill every Python on the machine.
 echo Searching for bot process...
-tasklist /FI "IMAGENAME eq python.exe" /V | find "run_mt5_live" >NUL 2>&1
-
-if "%ERRORLEVEL%"=="0" (
-    echo Found running bot. Stopping...
-    taskkill /F /FI "WINDOWTITLE eq run_mt5_live*" /T
-    echo Bot stopped successfully.
-) else (
-    echo No running bot found.
-)
+powershell -NoProfile -Command ^
+  "$p = Get-CimInstance Win32_Process -Filter \"Name='python.exe'\" | Where-Object { $_.CommandLine -like '*run_mt5_live*' };" ^
+  "if ($p) { $p | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }; Write-Host 'Bot stopped successfully.' }" ^
+  "else { Write-Host 'No running bot found.' }"
 
 echo.
 pause

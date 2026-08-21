@@ -7,6 +7,8 @@ echo   Trading Bot Status Check
 echo ====================================
 echo.
 
+cd /d "%~dp0.."
+
 REM Check MT5
 tasklist /FI "IMAGENAME eq terminal64.exe" 2>NUL | find /I /N "terminal64.exe">NUL
 if "%ERRORLEVEL%"=="0" (
@@ -17,13 +19,11 @@ if "%ERRORLEVEL%"=="0" (
 
 echo.
 
-REM Check Python bot
-tasklist /FI "IMAGENAME eq python.exe" 2>NUL | find /I /N "python.exe">NUL
-if "%ERRORLEVEL%"=="0" (
-    echo [OK] Python bot is running
-) else (
-    echo [X] Python bot is NOT running
-)
+REM Check the bot specifically. Matching on IMAGENAME alone would report "OK"
+REM for any unrelated Python process on the machine.
+powershell -NoProfile -Command ^
+  "$p = Get-CimInstance Win32_Process -Filter \"Name='python.exe'\" | Where-Object { $_.CommandLine -like '*run_mt5_live*' };" ^
+  "if ($p) { Write-Host '[OK] Trading bot is running (PID' $p.ProcessId ')' } else { Write-Host '[X] Trading bot is NOT running' }"
 
 echo.
 echo ====================================
@@ -33,7 +33,7 @@ echo.
 
 REM Show recent logs if they exist
 if exist "logs\bot_activity.log" (
-    powershell -Command "Get-Content logs\bot_activity.log -Tail 20"
+    powershell -NoProfile -Command "Get-Content logs\bot_activity.log -Tail 20"
 ) else (
     echo No log file found
 )

@@ -24,21 +24,25 @@ if "%ERRORLEVEL%"=="1" (
 echo [OK] MT5 is running
 echo.
 
-REM Check Python installation
-python --version >NUL 2>&1
+REM The bot runs out of the uv-managed .venv, not a global Python. A bare
+REM "python" would be missing MetaTrader5 and pandas on a fresh clone.
+uv --version >NUL 2>&1
 if errorlevel 1 (
-    echo [ERROR] Python is not installed or not in PATH
+    echo [ERROR] uv is not installed or not in PATH
+    echo Install it from https://docs.astral.sh/uv/
     pause
     exit /b 1
 )
 
-echo [OK] Python detected
+echo [OK] uv detected
 echo.
 
 REM Start the bot
+REM --native-tls makes uv trust the Windows certificate store; drop it if your
+REM network does not intercept TLS.
 echo Starting trading bot...
 echo Press Ctrl+C to stop
 echo.
-python scripts\run_mt5_live.py
+uv run --native-tls --extra mt5 python scripts\run_mt5_live.py
 
 pause

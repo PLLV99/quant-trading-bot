@@ -1,11 +1,21 @@
 [project]
-name = "trading-bot"
+name = "quant-trading-bot"
 version = "0.1.0"
-description = "Add your description here"
+description = "Pullback-strategy trading system for Gold and BTC on MetaTrader 5"
 readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
-    "ccxt>=4.5.28",
-    "numpy>=2.4.0",
+    "numpy>=2.3.0",
     "pandas>=2.3.3",
+    "matplotlib>=3.9",
+    "beautifulsoup4>=4.12",   # scripts/analyze_report.py parses MT5 HTML reports
 ]
+
+# MetaTrader5 is Windows-only and needs the terminal installed, so it is not a
+# hard dependency: the backtester falls back to synthetic data without it.
+#   uv sync --extra mt5
+[project.optional-dependencies]
+mt5 = ["MetaTrader5>=5.0.45"]
+
+[dependency-groups]
+dev = ["pytest>=8.0"]

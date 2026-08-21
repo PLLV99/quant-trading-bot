@@ -1,8 +1,0 @@
-ccxt
-pandas
-numpy
-ta-lib
-python-dotenv
-matplotlib
-MetaTrader5
-beautifulsoup4

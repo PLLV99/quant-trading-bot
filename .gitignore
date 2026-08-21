@@ -19,7 +19,9 @@ venv/
 # --- Logs & Data ---
 *.log
 logs/
-data/
+# Output only. Keep the leading slash — a bare "data/" also matches core/data/,
+# which silently kept the MT5 connector out of git for the whole project.
+/data/
 reports/
 
 # --- Trade Reports (Personal Data) ---
@@ -49,3 +51,9 @@ uv.lock
 !requirements.txt
 *.csv
 *.json
+# Backtest artefacts
+backtest_result.png
+backtest_trades.csv
+
+# Working notes, not for GitHub
+HANDOFF.md

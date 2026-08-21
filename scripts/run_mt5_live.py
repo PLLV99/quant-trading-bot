@@ -47,6 +47,13 @@ PORTFOLIO = [
 ]
 
 # --- PERSONAL GROWTH SAFETY ---
+# The connector never sends login credentials: it attaches to whichever account
+# the MT5 terminal is already signed into. That is convenient and keeps secrets
+# out of the repo, but it also means a stray login is the only thing standing
+# between this script and real orders. Refuse to start unless the account says
+# it is a demo, and make going live something you have to opt into on purpose.
+ALLOW_REAL_MONEY = False
+
 MAX_TOTAL_POSITIONS = 3  # Max 3 positions
 MAX_PER_SYMBOL = 1  # Max 1 position per symbol
 COOLDOWN_MINUTES = 240  # v2.0: 4 hours (H4 candle period)
@@ -283,6 +290,40 @@ def manage_trailing_stop():
 
 # MAIN BOT LOGIC
 # =============================================================================
+def account_is_tradeable(connector) -> bool:
+    """Refuse to trade anything but a demo account, unless told otherwise.
+
+    trade_mode is reported by the terminal: 0 = demo, 1 = contest, 2 = real.
+    """
+    account = connector.get_account_info()
+    if account is None:
+        logger.error("Connected, but the terminal returned no account info.")
+        return False
+
+    if account.trade_mode != 0 and not ALLOW_REAL_MONEY:
+        kind = {1: "contest", 2: "REAL MONEY"}.get(account.trade_mode, "unknown")
+        logger.critical(
+            f"Refusing to start: account {account.login} on {account.server} is a "
+            f"{kind} account (trade_mode={account.trade_mode}). "
+            f"Set ALLOW_REAL_MONEY = True if this is deliberate."
+        )
+        return False
+
+    if not account.trade_allowed:
+        logger.error(
+            f"Account {account.login} has trading disabled. Enable Algo Trading "
+            f"in the terminal toolbar, or check that the account is not read-only."
+        )
+        return False
+
+    label = "demo" if account.trade_mode == 0 else f"trade_mode={account.trade_mode}"
+    logger.info(
+        f"Account {account.login} ({account.server}) confirmed {label} — "
+        f"balance ${account.balance:,.2f}"
+    )
+    return True
+
+
 def run_live_bot():
     logger.info("=" * 60)
     logger.info("AntiGravity Bot v4.0 - PULLBACK SNIPER")
@@ -295,6 +336,10 @@ def run_live_bot():
     connector = MT5Connector()
     if not connector.connect():
         logger.error("Failed to connect!")
+        return
+
+    if not account_is_tradeable(connector):
+        connector.shutdown()
         return
 
     # Use config risk params (already updated for Personal mode)

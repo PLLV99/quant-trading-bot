@@ -30,6 +30,11 @@ someone who is not the author.
   later with `'int' object has no attribute 'date'`.
 - Removed `paper_trader.py` (unreferenced, and calling a two-argument
   `generate_signal` that has taken three arguments for some time).
+- **The live bot now refuses to start on a non-demo account.** It sends no
+  credentials, attaching instead to whatever account the terminal holds, so a
+  stray login was the only thing between it and real orders. It checks
+  `trade_mode` and stops unless the account reports demo; `ALLOW_REAL_MONEY`
+  makes going live deliberate rather than accidental.
 - Windows `.bat` wrappers now invoke `uv` rather than a bare `python`, and find
   the bot by command line instead of a window title that was never set.
 

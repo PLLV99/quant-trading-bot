@@ -44,6 +44,14 @@ If uv reports `invalid peer certificate: UnknownIssuer`, your network is
 intercepting TLS — add `--native-tls` to each command so uv trusts the Windows
 certificate store.
 
+### Live trading
+
+`scripts/run_mt5_live.py` refuses to start on anything but a demo account. It has
+no credentials of its own — it attaches to whichever account the MT5 terminal is
+already signed into — so it checks `trade_mode` and stops unless the terminal
+reports a demo. Going live is an explicit `ALLOW_REAL_MONEY = True` in that file,
+not something a stray login can do for you.
+
 ## Architecture (Pipeline)
 
 Each stage is a module, and the stage boundary is where the data changes shape:

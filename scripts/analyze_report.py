@@ -17,17 +17,12 @@ from datetime import datetime
 from bs4 import BeautifulSoup
 import glob
 import sys
-# The reports below use box-drawing characters and emoji. A Windows console
-# defaults to cp1252 and raises UnicodeEncodeError on the first line printed,
-# so force UTF-8 rather than stripping the output back to ASCII.
-if hasattr(sys.stdout, "reconfigure"):
-    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
-
-# defaults to cp1252 and raises UnicodeEncodeError on the first line printed,
-# so force UTF-8 rather than stripping the output back to ASCII.
-if hasattr(sys.stdout, "reconfigure"):
-    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 import os
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from core.console import use_utf8_stdio
+
+use_utf8_stdio()
 
 
 # =============================================================================

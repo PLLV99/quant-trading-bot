@@ -58,6 +58,19 @@ class MT5Connector:
         info = self.get_account_info()
         return float(info.balance) if info else 0.0
 
+    def timeframe(self, name: str):
+        """Resolve a timeframe name ("H1", "H4", "M15", ...) to its mt5 constant.
+
+        Saves callers from importing MetaTrader5 just to name a timeframe,
+        which is the whole point of keeping the API in one module.
+        """
+        if self._mt5 is None:
+            return None
+        try:
+            return getattr(self._mt5, f"TIMEFRAME_{name.upper()}")
+        except AttributeError:
+            raise ValueError(f"Unknown MT5 timeframe: {name!r}") from None
+
     # ── market data ───────────────────────────────────────────────────────
     def fetch_candles(self, symbol: str, limit: int = 288, timeframe=None) -> pd.DataFrame:
         """Most recent `limit` candles as an OHLCV frame indexed by datetime.

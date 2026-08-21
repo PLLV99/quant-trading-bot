@@ -11,11 +11,9 @@ import os
 
 # Add project root to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-# The reports below use box-drawing characters and emoji. A Windows console
-# defaults to cp1252 and raises UnicodeEncodeError on the first line printed,
-# so force UTF-8 rather than stripping the output back to ASCII.
-if hasattr(sys.stdout, "reconfigure"):
-    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+from core.console import use_utf8_stdio
+
+use_utf8_stdio()
 
 import pandas as pd
 import numpy as np
@@ -23,6 +21,7 @@ import config
 from core.signals.strategy_engine import StrategyEngine
 from core.risk.risk_manager import RiskManager
 from core.analytics.backtester import Backtester
+from core.data.mt5_connector import MT5Connector
 
 # ═══════════════════════════════════════
 # CONFIGURATION
@@ -78,31 +77,21 @@ def generate_sample_data(days=90, asset="gold"):
 
 
 def try_load_mt5_data(symbol="XAUUSDm", timeframe_h4=True, days=90):
-    """Attempt to load data from MT5 if available."""
-    try:
-        import MetaTrader5 as mt5
+    """Recent candles from the MT5 terminal, or None when it is unavailable.
 
-        if not mt5.initialize():
-            return None
-
-        if timeframe_h4:
-            tf = mt5.TIMEFRAME_H4
-        else:
-            tf = mt5.TIMEFRAME_H1
-
-        rates = mt5.copy_rates_from_pos(symbol, tf, 0, days * 6)
-        mt5.shutdown()
-
-        if rates is None:
-            return None
-
-        df = pd.DataFrame(rates)
-        df["datetime"] = pd.to_datetime(df["time"], unit="s")
-        df.set_index("datetime", inplace=True)
-        df.rename(columns={"tick_volume": "volume"}, inplace=True)
-        return df[["open", "high", "low", "close", "volume"]]
-    except Exception:
+    H4 bars are 6 per day, which is where the `days * 6` comes from.
+    """
+    connector = MT5Connector()
+    if not connector.connect():
         return None
+
+    try:
+        tf = connector.timeframe("H4" if timeframe_h4 else "H1")
+        data = connector.fetch_candles(symbol, limit=days * 6, timeframe=tf)
+    finally:
+        connector.shutdown()
+
+    return None if data.empty else data
 
 
 def main():

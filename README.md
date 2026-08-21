@@ -13,6 +13,37 @@ A Python-based algorithmic trading system implementing a **Pullback Sniper** str
 - **Backtesting Engine** — Professional analytics with Sharpe/Sortino/Calmar ratios, Monte Carlo simulation
 - **Live Execution** — MT5 API integration for real-time trading
 
+## Quick Start
+
+Dependencies are managed with [uv](https://docs.astral.sh/uv/), which fetches the
+right Python (3.14) for you:
+
+```bash
+uv sync --extra mt5
+```
+
+Run the backtest:
+
+```bash
+uv run python scripts/run_backtest_v2.py
+```
+
+Run the tests:
+
+```bash
+uv run python -m pytest tests/ -q
+```
+
+`--extra mt5` installs the MetaTrader 5 bindings. They are Windows-only and need
+the MT5 terminal installed and signed in — the connector attaches to whatever
+account the terminal already holds, so there are no credentials to store. Drop
+the extra and everything except live trading still works: the backtester falls
+back to synthetic Gold data.
+
+If uv reports `invalid peer certificate: UnknownIssuer`, your network is
+intercepting TLS — add `--native-tls` to each command so uv trusts the Windows
+certificate store.
+
 ## Architecture (Pipeline)
 
 Each stage is a module, and the stage boundary is where the data changes shape:
@@ -30,24 +61,26 @@ prices in, a signal out, a signal plus a size out, an order placed.
 ```
 quant-trading-bot/
 ├── config.py                    # Strategy parameters & risk settings
-├── main.py                      # Entry point
 │
 ├── core/
+│   ├── data/
+│   │   └── mt5_connector.py     # The only module that touches the MT5 API
 │   ├── signals/
 │   │   └── strategy_engine.py   # Pullback Sniper v2.0 — indicators + 5-filter entry
 │   ├── risk/
 │   │   └── risk_manager.py      # Position sizing, drawdown limits, streak detection
-│   └── analytics/
-│       ├── backtester.py        # Backtesting engine + Monte Carlo
-│       └── paper_trader.py      # Paper trading simulator
+│   ├── analytics/
+│   │   └── backtester.py        # Backtesting engine + Monte Carlo
+│   └── console.py               # Forces UTF-8 output so Windows consoles survive the reports
 │
 ├── scripts/                     # Executable entry points
 │   ├── run_mt5_live.py          # Live execution — MT5 connection, 4-level trailing stop
 │   ├── run_backtest_v2.py       # Full backtest with analytics
 │   ├── quick_backtest.py        # Fast iteration on strategy parameters
-│   └── analyze_report.py        # Post-run trade report analysis
+│   ├── analyze_report.py        # Post-run trade report analysis
+│   └── *.bat                    # Windows wrappers — start / stop / check status
 │
-├── tests/                       # pytest
+├── tests/                       # pytest — 44 tests
 │   ├── test_strategy.py         test_strategy_v2.py
 │   ├── test_risk.py             test_risk_enhanced.py    test_risk_ftmo.py
 │   └── test_backtest.py
@@ -57,9 +90,11 @@ quant-trading-bot/
     └── POST_MORTEM_ANALYSIS.md  # Why a 2:1 R:R strategy still lost money
 ```
 
-> There is no separate `core/data/` module — the MetaTrader 5 connection lives in the
-> scripts that need it (`run_mt5_live.py` for live trading, `run_backtest_v2.py` for
-> historical data), since that is the only place the broker API is touched.
+> The signal, risk, backtest, and data-loading paths all reach the broker through
+> `core/data/mt5_connector.py`, so everything except live trading can be exercised
+> on a machine with no terminal attached. `run_mt5_live.py` is the honest exception:
+> it still calls the MT5 API directly for order and position bookkeeping, and moving
+> that behind the connector is the next refactor this repo wants.
 
 ## Strategy: Pullback Sniper v2.0
 
@@ -90,7 +125,7 @@ The backtesting engine provides institutional-grade analytics:
 | Expectancy | Expected P&L per trade |
 
 ```bash
-python scripts/run_backtest_v2.py
+uv run python scripts/run_backtest_v2.py
 ```
 
 ## Lessons Learned
@@ -104,10 +139,11 @@ This project was tested with real capital on a demo account ($300 initial balanc
 
 ## Tech Stack
 
-- **Language:** Python 3.10+
+- **Language:** Python 3.14
 - **Broker API:** MetaTrader 5
 - **Analysis:** pandas, NumPy, matplotlib
 - **Testing:** pytest
+- **Packaging:** uv (locked via `uv.lock`)
 
 ## License
 

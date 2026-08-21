@@ -4,6 +4,37 @@
 
 ---
 
+## v2.0.1 — Repo hygiene (Aug 21, 2026)
+
+No strategy changes. This release is about the repository being runnable by
+someone who is not the author.
+
+- **`core/data/` was never in git.** The ignore rule read `data/`, and a pattern
+  with no leading slash matches a directory of that name at *any* depth — so it
+  swallowed `core/data/mt5_connector.py` along with the intended output folder.
+  The module existed on the author's disk, so every local run worked and nothing
+  ever surfaced the gap. A fresh clone could not import it, which broke every
+  entry point. Rule is now `/data/`.
+- **Data access consolidated.** `run_backtest_v2.py` had its own copy of the
+  candle-fetching logic; it now goes through `MT5Connector`, which grew a
+  `timeframe()` helper so callers never import `MetaTrader5` directly.
+- **Test suite made real.** Three tests failed against the current API, and five
+  more asserted nothing at all — they printed `[PASS]` and returned `True`, so
+  they could not fail. Rewritten with assertions, including the first test that
+  actually verifies a pullback entry fires. 44 tests, all passing.
+- **Windows console crashes fixed at the source.** The UTF-8 bootstrap had been
+  pasted into four scripts (twice, in two of them) and still left `core/` able to
+  raise `UnicodeEncodeError` mid-backtest from a single emoji in a risk alert.
+  Now one helper, `core/console.py`.
+- **`Backtester.run()` rejects a non-datetime index** instead of failing 300 rows
+  later with `'int' object has no attribute 'date'`.
+- Removed `paper_trader.py` (unreferenced, and calling a two-argument
+  `generate_signal` that has taken three arguments for some time).
+- Windows `.bat` wrappers now invoke `uv` rather than a bare `python`, and find
+  the bot by command line instead of a window title that was never set.
+
+---
+
 ## v2.0.0 — "Pullback Sniper" (Feb 22, 2026)
 
 **Complete strategy redesign** after v1.x lost -$207 over 214 trades.

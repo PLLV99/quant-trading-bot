@@ -314,7 +314,17 @@ class Backtester:
         """
         Main simulation loop.
         Iterates through OHLCV data, generates signals, simulates fills.
+
+        `data` must be indexed by timestamp: the daily-reset and cooldown
+        logic both read the index as a datetime.
         """
+        if not isinstance(data.index, pd.DatetimeIndex):
+            raise TypeError(
+                "Backtester.run() needs a DatetimeIndex — the daily loss reset "
+                f"and the signal cooldown both read the index as a timestamp, but got {type(data.index).__name__}. "
+                "Set one with data.index = pd.to_datetime(data['time'])."
+            )
+
         if self.verbose:
             print(f"────────────────────────────────────────────")
             print(f"  BACKTEST ENGINE v2.0")

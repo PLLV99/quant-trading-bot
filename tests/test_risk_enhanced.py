@@ -181,11 +181,23 @@ class TestVolatilityScaling(unittest.TestCase):
         self.assertEqual(mult, 0.75)
         print("✅ Elevated volatility (1.3x): Multiplier = 0.75")
     
-    def test_low_volatility(self):
-        """Very low volatility (<0.5x) should increase position size."""
+    def test_below_normal_volatility(self):
+        """Below-normal volatility (0.5x-0.8x) should size up slightly."""
+        mult = self.risk.get_volatility_multiplier(0.0006)  # 0.6x normal
+        self.assertEqual(mult, 1.1)
+        print("✅ Below-normal volatility (0.6x): Multiplier = 1.1")
+
+    def test_very_low_volatility_does_not_boost(self):
+        """Very low volatility (<0.5x) must NOT size up.
+
+        The boost that used to live here was removed on purpose: sizing up
+        into a quiet market is martingale-shaped, and the live account that
+        motivated the post-mortem was already sizing too large for its equity.
+        Quiet markets now size the same as normal ones.
+        """
         mult = self.risk.get_volatility_multiplier(0.0004)  # 0.4x normal
-        self.assertEqual(mult, 1.25)
-        print("✅ Low volatility (0.4x): Multiplier = 1.25")
+        self.assertEqual(mult, 1.0)
+        print("✅ Very low volatility (0.4x): Multiplier = 1.0 (boost disabled)")
     
     def test_disabled_scaling(self):
         """When disabled, should always return 1.0."""

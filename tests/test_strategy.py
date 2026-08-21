@@ -1,81 +1,114 @@
-import sys
+"""
+Test Suite for StrategyEngine (grid mode).
+
+Covers the three things the grid path is responsible for: recognising trend,
+breathing the grid with volatility, and refusing to buy into a downtrend.
+"""
+
 import os
-import pandas as pd
+import sys
+
 import numpy as np
+import pandas as pd
+import pytest
 
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from core.signals.strategy_engine import StrategyEngine
 from core.risk.risk_manager import RiskManager
+from core.signals.strategy_engine import StrategyEngine
+
 
 class MockConfig:
     def get(self, key, default):
         return default
 
-def test_strategy_engine():
-    print("=== Testing Strategy Engine (The Engine) ===\n")
-    
-    # 1. Setup
-    risk_manager = RiskManager(MockConfig())
-    engine = StrategyEngine(symbol="BTC/USDT", risk_manager=risk_manager)
-    
-    # 2. Mock Data (Bullish Trend, Low Vol)
-    # Price going UP, Low Volatility
-    dates = pd.date_range(start='2024-01-01', periods=300, freq='h')
-    data_bull = pd.DataFrame({
-        'open': np.linspace(100, 200, 300),
-        'high': np.linspace(100, 200, 300) + 1,
-        'low': np.linspace(100, 200, 300) - 1,
-        'close': np.linspace(100, 200, 300)
-    }, index=dates)
-    
-    # 3. Test Signal Generation
-    print("Test Consition 1: Bullish Trend + Low Vol")
-    latest_slice = engine.fetch_market_data(data_bull.copy())
-    signal = engine.generate_signal(current_price=200, market_data=latest_slice)
-    
-    # VERIFY: Should allow buys
-    if len(signal['buy_levels']) > 0 and signal['trend'] == 'bullish':
-        print("[PASS] Bullish Trend recognized. Buy Grid Active.")
-    else:
-        print(f"[FAIL] Trend Check Failed. Trend: {signal['trend']}, Buys: {len(signal['buy_levels'])}")
-        
-    # 4. Test Dynamic Grid (High Volatility)
-    print("\nTest Condition 2: Dynamic Grid Breathing")
-    
-    # Scenario A: Low Vol (ATR ~ 2.0 from previous test)
-    step_low_vol, _ = engine.calculate_dynamic_grid(current_price=200, current_atr=2.0, base_atr=2.0)
-    print(f"Low Vol Grid Step: {step_low_vol:.2f}")
-    
-    # Scenario B: High Vol (ATR Spikes to 10.0)
-    step_high_vol, _ = engine.calculate_dynamic_grid(current_price=200, current_atr=10.0, base_atr=2.0)
-    print(f"High Vol Grid Step: {step_high_vol:.2f}")
-    
-    # VERIFY: Grid should widen by approx 5x (10/2)
-    ratio = step_high_vol / step_low_vol
-    if 4.8 < ratio < 5.2:
-        print(f"[PASS] Grid Breathing Logic Works! (Grid widened {ratio:.1f}x as Vol increased 5x)")
-    else:
-        print(f"[FAIL] Grid Logic Failed. Ratio: {ratio}")
 
-    # 5. Test Trend Filter (Bearish)
-    print("\nTest Condition 3: Bearish Trend Filter")
-    # Generate Bearish Data
-    data_bear = pd.DataFrame({
-        'open': np.linspace(200, 100, 300),
-        'high': np.linspace(200, 100, 300) + 1,
-        'low': np.linspace(200, 100, 300) - 1,
-        'close': np.linspace(200, 100, 300)
-    }, index=dates)
-    
-    latest_slice_bear = engine.fetch_market_data(data_bear.copy())
-    signal_bear = engine.generate_signal(current_price=100, market_data=latest_slice_bear)
-    
-    # VERIFY: Should BLOCK buys
-    if len(signal_bear['buy_levels']) == 0 and signal_bear['trend'] == 'bearish':
-        print("[PASS] Bearish Trend Filter Works. Buy Grid Paused.")
-    else:
-        print(f"[FAIL] Filter Failed. Trend: {signal_bear['trend']}, Buys: {len(signal_bear['buy_levels'])}")
+def make_engine():
+    """A fresh engine per scenario — grid levels and cooldown are instance state."""
+    return StrategyEngine(symbol="BTC/USDT", risk_manager=RiskManager(MockConfig()))
 
-if __name__ == "__main__":
-    test_strategy_engine()
+
+def make_market(start, end, periods=300, amplitude=8.0, wavelength=40.0):
+    """Synthetic OHLC with a linear trend plus a sine wobble.
+
+    The wobble matters: a perfectly straight ramp pins RSI at 0 or 100, which
+    the momentum filter reads as exhaustion and blocks every entry. Real price
+    action oscillates around its trend, so the test data does too.
+    """
+    t = np.arange(periods)
+    close = np.linspace(start, end, periods) + amplitude * np.sin(
+        2 * np.pi * t / wavelength
+    )
+    index = pd.date_range(start="2024-01-01", periods=periods, freq="h")
+    return pd.DataFrame(
+        {"open": close, "high": close + 1, "low": close - 1, "close": close},
+        index=index,
+    )
+
+
+def latest_row(engine, data):
+    """generate_signal() consumes the last row, not the whole frame."""
+    return engine.fetch_market_data(data).iloc[-1]
+
+
+@pytest.fixture
+def bullish_signal():
+    engine = make_engine()
+    row = latest_row(engine, make_market(100, 200))
+    return engine.generate_signal(
+        current_price=float(row["close"]), market_data=row, current_balance=10_000.0
+    )
+
+
+@pytest.fixture
+def bearish_signal():
+    engine = make_engine()
+    row = latest_row(engine, make_market(200, 100))
+    return engine.generate_signal(
+        current_price=float(row["close"]), market_data=row, current_balance=10_000.0
+    )
+
+
+def test_uptrend_opens_the_buy_grid(bullish_signal):
+    """Price above EMA200 with neutral momentum should arm buy levels."""
+    assert bullish_signal["trend"] == "bullish"
+    assert len(bullish_signal["buy_levels"]) > 0
+
+
+def test_downtrend_pauses_the_buy_grid(bearish_signal):
+    """The whole point of the trend filter: never catch a falling knife."""
+    assert bearish_signal["trend"] == "bearish"
+    assert bearish_signal["buy_levels"] == []
+
+
+def test_downtrend_still_sells(bearish_signal):
+    """Only buys are gated — sell levels stay live in a downtrend."""
+    assert len(bearish_signal["sell_levels"]) > 0
+
+
+def test_position_size_is_positive(bullish_signal):
+    assert bullish_signal["suggested_size_per_grid"] > 0
+
+
+def test_grid_widens_proportionally_with_volatility():
+    """Step size scales linearly with ATR: 5x the volatility, 5x the step."""
+    engine = make_engine()
+    step_low, _ = engine.calculate_dynamic_grid(
+        current_price=200, current_atr=2.0, base_atr=2.0
+    )
+    step_high, _ = engine.calculate_dynamic_grid(
+        current_price=200, current_atr=10.0, base_atr=2.0
+    )
+    assert step_high / step_low == pytest.approx(5.0, rel=0.05)
+
+
+def test_grid_does_not_shrink_below_base_step():
+    """Volatile symbols floor the multiplier at 1.0 so the grid never over-tightens."""
+    engine = make_engine()
+    step_base, _ = engine.calculate_dynamic_grid(
+        current_price=200, current_atr=2.0, base_atr=2.0
+    )
+    step_quiet, _ = engine.calculate_dynamic_grid(
+        current_price=200, current_atr=0.5, base_atr=2.0
+    )
+    assert step_quiet == pytest.approx(step_base)

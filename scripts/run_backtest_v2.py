@@ -77,21 +77,29 @@ def generate_sample_data(days=90, asset="gold"):
 
 
 def try_load_mt5_data(symbol="XAUUSDm", timeframe_h4=True, days=90):
-    """Recent candles from the MT5 terminal, or None when it is unavailable.
+    """Recent candles, the broker's order-size limits, and the account leverage.
 
-    H4 bars are 6 per day, which is where the `days * 6` comes from.
+    Returns `(None, None, 1.0)` when the terminal is unavailable. H4 bars are 6
+    per day, which is where the `days * 6` comes from. The spec travels with
+    the data because a backtest that ignores the broker's minimum lot is
+    measuring a strategy nobody can actually place; the leverage travels with
+    it because a Gold position sized in real lots is far larger than the cash
+    in the account and only fits once margin is modelled.
     """
     connector = MT5Connector()
     if not connector.connect():
-        return None
+        return None, None, 1.0
 
     try:
         tf = connector.timeframe("H4" if timeframe_h4 else "H1")
         data = connector.fetch_candles(symbol, limit=days * 6, timeframe=tf)
+        spec = connector.get_instrument_spec(symbol)
+        account = connector.get_account_info()
+        leverage = float(account.leverage) if account else 1.0
     finally:
         connector.shutdown()
 
-    return None if data.empty else data
+    return (None, None, 1.0) if data.empty else (data, spec, leverage)
 
 
 def main():
@@ -102,7 +110,7 @@ def main():
 
     # Try MT5 first, fall back to synthetic data
     print("\n  Loading data...")
-    data = try_load_mt5_data("XAUUSDm", days=BACKTEST_DAYS)
+    data, instrument, leverage = try_load_mt5_data("XAUUSDm", days=BACKTEST_DAYS)
 
     if data is not None:
         print(f"  ✅ Loaded {len(data)} candles from MT5 (XAUUSDm H4)")
@@ -111,6 +119,14 @@ def main():
         print("  ⚠️  MT5 not available — using synthetic Gold data")
         data = generate_sample_data(days=BACKTEST_DAYS, asset="gold")
         data_source = "Synthetic Data (seed=42)"
+
+    if instrument is not None:
+        print(
+            f"  Broker limits: min {instrument.min_lot} lot, step {instrument.lot_step},"
+            f" {instrument.contract_size:g} units per lot · leverage 1:{leverage:g}"
+        )
+    else:
+        print("  ⚠️  No broker limits — sizes are fractional and not executable")
 
     print(f"  Source: {data_source}")
     print(f"  Period: {data.index[0].date()} → {data.index[-1].date()}")
@@ -130,10 +146,19 @@ def main():
         strategy_mode=STRATEGY_MODE,
         sl_atr_mult=SL_ATR_MULT,
         tp_atr_mult=TP_ATR_MULT,
+        instrument=instrument,
+        leverage=leverage,
     )
 
     # Run
     backtester.run(data)
+
+    if backtester.skipped_trades:
+        print(
+            f"\n  ⚠️  {len(backtester.skipped_trades)} signal(s) skipped: the smallest"
+            f" position the broker allows would have risked more than the model permits."
+        )
+        print("     This is the constraint that broke the $300 live account.")
 
     # Export trade log
     if backtester.analyzer and backtester.analyzer.trade_pnls:

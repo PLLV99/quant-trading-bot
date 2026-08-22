@@ -76,7 +76,8 @@ quant-trading-bot/
 │   ├── signals/
 │   │   └── strategy_engine.py   # Pullback Sniper v2.0 — indicators + 5-filter entry
 │   ├── risk/
-│   │   └── risk_manager.py      # Position sizing, drawdown limits, streak detection
+│   │   ├── lot_sizing.py        # Dollar risk → a lot size the broker will accept
+│   │   └── risk_manager.py      # Drawdown limits, streak detection, volatility scaling
 │   ├── analytics/
 │   │   └── backtester.py        # Backtesting engine + Monte Carlo
 │   └── console.py               # Forces UTF-8 output so Windows consoles survive the reports
@@ -117,6 +118,16 @@ Risk management:
 - **Stop Loss:** 1.5× ATR below entry
 - **Take Profit:** 4.5× ATR above entry (R:R = 1:3)
 - **Risk per trade:** 2% of account
+- **Minimum lot check:** if the smallest position the broker will accept risks more
+  than 1.5× the intended amount, the trade is skipped rather than resized
+
+That last rule is the one this project was built to learn. A 2% risk model on a
+$300 account wants 0.0011 lots of Gold; the broker's floor is 0.01, which risks
+18% of the account. The old code clamped up to the floor and said nothing, and
+223 live trades later a strategy with a genuine 2:1 edge had a profit factor of
+0.96. `core/risk/lot_sizing.py` is now the single place that conversion happens,
+and both the live bot and the backtester go through it — so the backtest can no
+longer pass by holding positions no broker would fill.
 
 ## Backtesting Engine
 

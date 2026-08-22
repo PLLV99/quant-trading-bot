@@ -6,6 +6,8 @@ matplotlib.use("Agg")  # Non-interactive backend for server/VPS
 import matplotlib.pyplot as plt
 import os
 
+from core.risk.lot_sizing import size_position
+
 
 class PerformanceAnalyzer:
     """
@@ -290,6 +292,9 @@ class Backtester:
         strategy_mode="gold_ha",
         sl_atr_mult=1.5,
         tp_atr_mult=4.5,
+        instrument=None,
+        max_risk_overshoot=1.5,
+        leverage=1.0,
     ):
         self.strategy = strategy_engine
         self.initial_balance = initial_balance
@@ -297,6 +302,20 @@ class Backtester:
         self.strategy_mode = strategy_mode
         self.sl_atr_mult = sl_atr_mult
         self.tp_atr_mult = tp_atr_mult
+        # Pass an InstrumentSpec to hold the simulation to lot sizes the broker
+        # would actually fill. Without one the backtester holds fractional
+        # positions, which is how it managed to look profitable on an account the
+        # minimum lot size had already broken. None keeps the old model, which is
+        # fine for synthetic data that has no broker behind it.
+        self.instrument = instrument
+        self.max_risk_overshoot = max_risk_overshoot
+        self.skipped_trades = []
+        # CFDs are margined, not bought outright: a 0.03 lot Gold position is
+        # $13,800 of notional but only $138 of margin at 1:100. Modelling it as
+        # a cash purchase would reject nearly every real lot size on a $10,000
+        # account. Leverage 1.0 keeps the old cash behaviour for synthetic runs.
+        self.leverage = max(1.0, float(leverage))
+        self.margin_held = 0.0
         self.balance = initial_balance
         self.inventory = 0.0
         self.active_orders = []
@@ -350,7 +369,7 @@ class Backtester:
             current_date = timestamp.date()
             if last_date is None or current_date != last_date:
                 self.strategy.risk_manager.reset_daily_stats(
-                    self.balance + (self.inventory * current_price)
+                    self._equity(current_price)
                 )
                 last_date = current_date
 
@@ -359,7 +378,7 @@ class Backtester:
                 self._check_sl_tp(high, low, timestamp)
 
             # 1. Update Portfolio Value (Mark-to-Market)
-            portfolio_value = self.balance + (self.inventory * current_price)
+            portfolio_value = self._equity(current_price)
             self.strategy.risk_manager.update_account_status(portfolio_value)
 
             # --- Check Daily Limits ---
@@ -394,10 +413,12 @@ class Backtester:
                 if action == "buy_signal" and self.inventory == 0:
                     # Enter LONG
                     size = self._calculate_position_size(current_price, atr)
-                    cost = current_price * size
+                    notional = current_price * size
+                    cost = notional / self.leverage
                     if self.balance >= cost and size > 0:
-                        fee = cost * self.fee_rate
+                        fee = notional * self.fee_rate
                         self.balance -= cost + fee
+                        self.margin_held = cost
                         self.inventory += size
 
                         sl_price = current_price - (atr * self.sl_atr_mult)
@@ -461,6 +482,13 @@ class Backtester:
             self._print_report()
             self.plot_results()
 
+    def _equity(self, current_price):
+        """Cash, plus the margin posted, plus the open position's unrealised P&L."""
+        if self.open_position is None or self.inventory <= 0:
+            return self.balance
+        unrealised = (current_price - self.open_position["entry_price"]) * self.inventory
+        return self.balance + self.margin_held + unrealised
+
     def _check_sl_tp(self, high, low, timestamp):
         """Check if SL or TP was hit on current bar."""
         pos = self.open_position
@@ -476,12 +504,16 @@ class Backtester:
                 self._close_position(pos["tp"], timestamp, reason="take_profit")
 
     def _close_position(self, exit_price, timestamp, reason=""):
-        """Close current open position."""
+        """Close the open position, returning its margin and its P&L."""
         if self.inventory <= 0:
             return
+
+        entry = self.open_position["entry_price"] if self.open_position else exit_price
         revenue = exit_price * self.inventory
         fee = revenue * self.fee_rate
-        self.balance += revenue - fee
+        pnl = (exit_price - entry) * self.inventory
+        self.balance += self.margin_held + pnl - fee
+        self.margin_held = 0.0
 
         self.trade_history.append(
             {
@@ -499,19 +531,37 @@ class Backtester:
         self.strategy.last_trade_time = timestamp
 
     def _calculate_position_size(self, current_price, atr):
-        """Position sizing using fractional risk model."""
+        """Position size for one trade, or 0 to skip it.
+
+        With an `instrument` spec this defers to the same `size_position` the
+        live bot uses, so the simulation is held to sizes the broker would
+        actually fill. Without one it keeps the old fractional model, which
+        silently ignores the constraint that cost the live account its edge.
+        """
         import config
 
         base_risk_pct = config.RISK_PARAMS.get("risk_per_trade_pct", 0.02)
         dollar_risk = self.balance * base_risk_pct
         stop_distance = atr * self.sl_atr_mult
 
-        if stop_distance > 0:
-            position_size = dollar_risk / stop_distance
-            max_position_value = self.balance * 0.1
-            max_size = max_position_value / current_price
-            return min(position_size, max_size)
-        return 0.0
+        if stop_distance <= 0:
+            return 0.0
+
+        if self.instrument is not None:
+            sizing = size_position(
+                dollar_risk, stop_distance, self.instrument, self.max_risk_overshoot
+            )
+            if not sizing.tradeable:
+                self.skipped_trades.append(
+                    {"risk_wanted": dollar_risk, "reason": sizing.reason}
+                )
+                return 0.0
+            return sizing.lot * self.instrument.contract_size
+
+        position_size = dollar_risk / stop_distance
+        max_position_value = self.balance * 0.1
+        max_size = max_position_value / current_price
+        return min(position_size, max_size)
 
     def _prepare_indicators(self, data):
         return self.strategy.add_indicators(data)

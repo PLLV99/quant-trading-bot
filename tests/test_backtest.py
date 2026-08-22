@@ -130,3 +130,81 @@ def test_run_rejects_a_non_datetime_index():
     data = trending_market(periods=60).reset_index(drop=True)
     with pytest.raises(TypeError, match="DatetimeIndex"):
         make_backtester().run(data)
+
+
+# ─────────────────────────────────────────────────────────────────────
+# Broker constraints
+# ─────────────────────────────────────────────────────────────────────
+
+from core.risk.lot_sizing import InstrumentSpec
+
+GOLD = InstrumentSpec(contract_size=100.0, min_lot=0.01, lot_step=0.01, max_lot=200.0)
+
+
+def make_broker_backtester(balance, leverage=100.0):
+    """A backtester held to real Gold lot sizes on a margined account."""
+    return Backtester(
+        StrategyEngine("XAUUSDm", RiskManager(MockConfig())),
+        initial_balance=balance,
+        verbose=False,
+        strategy_mode="gold_ha",
+        sl_atr_mult=SL_ATR_MULT,
+        tp_atr_mult=TP_ATR_MULT,
+        instrument=GOLD,
+        leverage=leverage,
+    )
+
+
+def test_positions_are_whole_lot_steps():
+    """The point of the whole exercise: no more 0.0037-lot positions."""
+    backtester = make_broker_backtester(100_000)
+    backtester.run(trending_market())
+
+    for trade in entries(backtester):
+        lots = trade["size"] / GOLD.contract_size
+        assert lots >= GOLD.min_lot
+        assert round(lots / GOLD.lot_step) == pytest.approx(
+            lots / GOLD.lot_step, abs=1e-9
+        )
+
+
+def test_a_tiny_account_is_refused_rather_than_oversized():
+    """$300 of Gold is the trade that broke the live account.
+
+    The old backtester sized it fractionally and reported a profit. It should
+    now decline to trade at all and say why.
+    """
+    backtester = make_broker_backtester(300)
+    backtester.run(trending_market())
+
+    assert entries(backtester) == []
+    assert backtester.skipped_trades
+    assert all("min_lot" in s["reason"] for s in backtester.skipped_trades)
+
+
+def test_a_funded_account_still_trades():
+    """The guard must not simply refuse everything."""
+    backtester = make_broker_backtester(100_000)
+    backtester.run(trending_market())
+
+    assert len(entries(backtester)) > 0
+    assert backtester.skipped_trades == []
+
+
+def test_margin_is_posted_not_the_full_notional():
+    """At 1:100 a position worth many times the account still has to fit."""
+    backtester = make_broker_backtester(100_000)
+    backtester.run(trending_market())
+
+    first = entries(backtester)[0]
+    notional = first["price"] * first["size"]
+    assert first["cost"] == pytest.approx(notional / 100.0)
+
+
+def test_fractional_sizing_survives_without_an_instrument():
+    """No spec means synthetic data with no broker behind it — keep the old model."""
+    backtester = make_backtester()
+    backtester.run(trending_market())
+
+    assert backtester.instrument is None
+    assert len(entries(backtester)) > 0

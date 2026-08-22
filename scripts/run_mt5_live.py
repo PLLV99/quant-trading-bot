@@ -27,6 +27,7 @@ use_utf8_stdio()
 import config
 from core.data.mt5_connector import MT5Connector
 from core.signals.strategy_engine import StrategyEngine
+from core.risk.lot_sizing import size_position
 from core.risk.risk_manager import RiskManager
 
 # =============================================================================
@@ -53,6 +54,10 @@ PORTFOLIO = [
 # between this script and real orders. Refuse to start unless the account says
 # it is a demo, and make going live something you have to opt into on purpose.
 ALLOW_REAL_MONEY = False
+
+# How far past the intended risk the smallest legal position may go before a
+# trade is skipped entirely. See core/risk/lot_sizing.py.
+MAX_RISK_OVERSHOOT = 1.5
 
 MAX_TOTAL_POSITIONS = 3  # Max 3 positions
 MAX_PER_SYMBOL = 1  # Max 1 position per symbol
@@ -87,60 +92,44 @@ logger = logging.getLogger("AntiGravity")
 # HELPER FUNCTIONS
 # =============================================================================
 def calculate_lot_size(
-    symbol, account_balance, risk_pct, sl_distance, risk_manager=None
+    connector, symbol, account_balance, risk_pct, sl_distance, risk_manager=None
 ):
+    """Lot size for one trade, or 0.0 when the trade should be skipped.
+
+    All this does is fetch the broker's constraints and hand them to
+    `size_position`, which is shared with the backtester so the two cannot
+    drift apart again. It used to clamp up to the minimum lot without checking
+    what that lot actually risked, which is how a 2% model came to risk 18% of
+    a $300 account on every Gold trade.
     """
-    Calculates dynamic lot size based on Risk %.
-    v1.3.1: FIXED - Always use 2% of balance (removed fixed $50 cap)
+    spec = connector.get_instrument_spec(symbol)
+    if spec is None:
+        logger.error(f"Failed to get instrument spec for {symbol}")
+        return 0.0
 
-    For $198 balance: Max loss = $3.96 per trade
-    For $500 balance: Max loss = $10 per trade
-    """
-    if sl_distance == 0:
-        return 0.01
+    risk_pct = (
+        getattr(risk_manager, "risk_per_trade_pct", risk_pct)
+        if risk_manager
+        else risk_pct
+    )
+    requested_risk = account_balance * risk_pct
 
-    # v1.3.1 FIX: ONLY use percentage, no fixed dollar cap
-    if risk_manager:
-        risk_pct_from_config = getattr(risk_manager, "risk_per_trade_pct", 0.02)
-    else:
-        risk_pct_from_config = risk_pct
+    sizing = size_position(requested_risk, sl_distance, spec, MAX_RISK_OVERSHOOT)
 
-    # Risk amount = 2% of balance (dynamic, not fixed!)
-    risk_amount = account_balance * risk_pct_from_config
+    if not sizing.tradeable:
+        logger.warning(
+            f"[RISK] {symbol} skipped: smallest allowed position risks "
+            f"${sizing.risk_amount:.2f} against a ${requested_risk:.2f} budget "
+            f"({sizing.overshoot:.1f}x). Reason: {sizing.reason}"
+        )
+        return 0.0
 
     logger.info(
-        f"[RISK] Balance: ${account_balance:.2f}, Risk {risk_pct_from_config*100:.1f}% = ${risk_amount:.2f}"
+        f"[RISK] {symbol} balance ${account_balance:.2f}, risk {risk_pct*100:.1f}% "
+        f"= ${requested_risk:.2f} -> {sizing.lot} lots "
+        f"(actual ${sizing.risk_amount:.2f})"
     )
-
-    # Get Contract Size
-    symbol_info = mt5.symbol_info(symbol)
-    if not symbol_info:
-        logger.error(f"Failed to get info for {symbol}")
-        return 0.01
-
-    contract_size = symbol_info.trade_contract_size
-    min_lot = symbol_info.volume_min
-    max_lot = symbol_info.volume_max
-    step_lot = symbol_info.volume_step
-
-    # Formula: Volume = Risk / (ContractSize * SL_Price_Diff)
-    raw_lot = risk_amount / (contract_size * sl_distance)
-
-    # Round to step
-    lot = round(raw_lot / step_lot) * step_lot
-
-    # Cap limits
-    lot = max(min_lot, min(lot, max_lot))
-
-    # v1.3.1: Stricter safety cap for small accounts
-    if account_balance < 300 and lot > 0.02:
-        logger.warning(f"[SAFETY] Small account cap: {lot:.2f} -> 0.02 lots")
-        lot = 0.02
-    elif account_balance < 500 and lot > 0.05:
-        logger.warning(f"[SAFETY] Medium account cap: {lot:.2f} -> 0.05 lots")
-        lot = 0.05
-
-    return lot
+    return sizing.lot
 
 
 def close_positions(connector, symbol, position_type=None):
@@ -453,8 +442,12 @@ def run_live_bot():
                     # Dynamic Sizing with Max Loss Cap (v1.2 FIX)
                     sl_dist = atr * SL_ATR_MULT
                     lot_size = calculate_lot_size(
-                        symbol, balance, RISK_PER_TRADE_PERCENT, sl_dist, risk_manager
+                        connector, symbol, balance, RISK_PER_TRADE_PERCENT,
+                        sl_dist, risk_manager,
                     )
+
+                    if lot_size <= 0:
+                        continue
 
                     sl = current_price - sl_dist
                     tp = current_price + (atr * TP_ATR_MULT)
@@ -483,8 +476,12 @@ def run_live_bot():
                     # Dynamic Sizing with Max Loss Cap (v1.2 FIX)
                     sl_dist = atr * SL_ATR_MULT
                     lot_size = calculate_lot_size(
-                        symbol, balance, RISK_PER_TRADE_PERCENT, sl_dist, risk_manager
+                        connector, symbol, balance, RISK_PER_TRADE_PERCENT,
+                        sl_dist, risk_manager,
                     )
+
+                    if lot_size <= 0:
+                        continue
 
                     sl = current_price + sl_dist
                     tp = current_price - (atr * TP_ATR_MULT)

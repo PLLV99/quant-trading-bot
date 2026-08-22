@@ -12,6 +12,8 @@ account the terminal is signed into is the account that gets traded.
 
 import pandas as pd
 
+from core.risk.lot_sizing import InstrumentSpec
+
 
 class MT5Connector:
     """Thin wrapper over the MetaTrader 5 terminal API.
@@ -70,6 +72,27 @@ class MT5Connector:
             return getattr(self._mt5, f"TIMEFRAME_{name.upper()}")
         except AttributeError:
             raise ValueError(f"Unknown MT5 timeframe: {name!r}") from None
+
+    def get_instrument_spec(self, symbol: str):
+        """Broker order-size constraints for `symbol`, or None if unknown.
+
+        The single place these four numbers are read. Both the live bot and the
+        backtester size positions from this, so neither can quietly assume a
+        lot size the broker would reject.
+        """
+        if self._mt5 is None:
+            return None
+
+        info = self._mt5.symbol_info(symbol)
+        if info is None:
+            return None
+
+        return InstrumentSpec(
+            contract_size=info.trade_contract_size,
+            min_lot=info.volume_min,
+            lot_step=info.volume_step,
+            max_lot=info.volume_max,
+        )
 
     # ── market data ───────────────────────────────────────────────────────
     def fetch_candles(self, symbol: str, limit: int = 288, timeframe=None) -> pd.DataFrame:

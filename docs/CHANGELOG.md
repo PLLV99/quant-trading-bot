@@ -4,6 +4,36 @@
 
 ---
 
+## v2.0.2 — One place decides position size (Aug 21, 2026)
+
+Three functions used to convert a dollar risk into an order size, and none of
+them agreed. The one that traded was not the one the backtest measured, and
+neither was the one the tests covered.
+
+- **`core/risk/lot_sizing.py` is now the only place that conversion happens.**
+  It takes a risk budget, a stop distance, and the broker's constraints, and
+  returns a legal lot size — or refuses. Sizes round *down* to the lot step:
+  between two legal sizes, the smaller one is the one that respects the model.
+- **A trade whose smallest legal size overshoots its risk budget is skipped.**
+  Previously the code clamped up to `min_lot` and carried on. On a $300 account
+  that turned a $6 risk into a $53 one, every time, silently. The tolerance
+  (`MAX_RISK_OVERSHOOT`, 1.5) is deliberately generous — the case it exists to
+  catch overshoots by nine times, not by a rounding error.
+- **The backtester now honours broker constraints when given an instrument.**
+  This is the important one: it used to hold fractional lots, so it was
+  measuring a strategy that could not be placed and could never have surfaced
+  the problem it was supposed to catch. Feeding it the real Gold spec changes
+  the reported drawdown from −0.37% to −5.04% — the earlier figure was an
+  artefact of positions the broker would have rejected.
+- **Margin is modelled instead of cash.** Real lot sizes made this unavoidable:
+  0.03 lots of Gold is $13,800 of notional against a $10,000 account, which a
+  cash model rejects outright. At 1:100 it is $138 of margin. The backtester
+  now posts margin and settles P&L, and takes leverage from the account.
+- `MT5Connector.get_instrument_spec()` is the one place those four broker
+  numbers are read.
+
+Twenty-two new tests, including the $300 Gold position that started all of this.
+
 ## v2.0.1 — Repo hygiene (Aug 21, 2026)
 
 No strategy changes. This release is about the repository being runnable by
